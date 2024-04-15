@@ -6,7 +6,7 @@
 
 #### 二、知识
 
-学长的文章（写得好好）： https://blog.csdn.net/qq_66026801/article/details/130520032
+学长的文章（写得好好）： [FAT12镜像查看工具\_解析fat32镜像文件-CSDN博客](https://blog.csdn.net/qq_66026801/article/details/130520032)
 
 cat 需要访问数据区。
 
@@ -35,6 +35,8 @@ typedef struct BPB {
 ```
 
 ##### 2. FAT 表
+
+`FAT1` 与 `FAT2` 互为备份，所以理论上两张表是一样的。
 
 FAT 表项的值的含义：
 
@@ -70,8 +72,8 @@ typedef struct RootEntry {
 
 ```
 typedef struct Entry{
-	char DIR_Name[11];      //长度名+扩展名
-    u8   DIR_Attr;          //文件属性
+	char FILE_NAME[11];      //长度名+扩展名
+    u8   FILE_Attr;          //文件属性
     char reserved[10];      //保留位
     u16  DIR_WrtTime;       //最后一次写入时间
     u16  DIR_WrtDate;       //最后一次写入日期
@@ -80,13 +82,115 @@ typedef struct Entry{
 };	//跟 RootEntry 一模一样
 ```
 
+![FAT12.png](https://raw.githubusercontent.com/mlger/Pict/main/newPath/5a90e9eb1d9186eaad167bb31fd1ce9d.png)
+
+##### 5. File Attribution
+
+| 位   | 掩码 | 描述                           |
+| ---- | ---- | ------------------------------ |
+| 0    | 0x01 | 只读                           |
+| 1    | 0x02 | 隐藏                           |
+| 2    | 0x04 | 系统                           |
+| 3    | 0x08 | 卷标                           |
+| 4    | 0x10 | 子目录                         |
+| 5    | 0x20 | 档案                           |
+| 6    | 0x40 | 设备（内部使用，磁盘上看不到） |
+| 7    | 0x80 | 没有使用                       |
+
+0x0F 是 LFN。
+
 #### 三、代码设计
 
+整体访问思路是：表项 => 数据区 => 下一表项
+
+数据预处理，获取 BPB、表项、根目录及数据簇。
+
+暂时先不考虑 LFN 的情况。
+
+```c++
+struct BPB {                  // 11-35  25Bytes
+    uint16_t BPB_BytsPerSec;  // 每扇区字节数
+    uint8_t BPB_SecPerClus;   // 每簇扇区数
+    uint16_t BPB_RsvdSecCnt;  // Boot记录占用的扇区数
+    uint8_t BPB_NumFATs;      // FAT表个数
+    uint16_t BPB_RootEntCnt;  // 根目录最大文件数
+    uint16_t BPB_TotSec16;    // 扇区总数
+    uint8_t BPB_Media;        // 介质描述符
+    uint16_t BPB_FATSz16;     // 每个FAT表所占扇区数
+    uint16_t BPB_SecPerTrk;   // 每磁道扇区数（Sector/track）
+    uint16_t BPB_NumHeads;    // 磁头数（面数）
+    uint32_t BPB_HiddSec;     // 隐藏扇区数
+    uint32_t BPB_TotSec32;    // 如果BPB_ToSec16为0，该值为扇区数
+};
+
+struct Entry {              // 32 Bytes
+    char FILE_Name[11];     // 长度名+扩展名
+    uint8_t FILE_Attr;      // 文件属性
+    char reserved[10];      // 保留位
+    uint16_t DIR_WrtTime;   // 最后一次写入时间
+    uint16_t DIR_WrtDate;   // 最后一次写入日期
+    uint16_t DIR_FstClus;   // 开始簇号
+    uint32_t DIR_FileSize;  // 文件大小
+};
+
+struct LongFileNameEntry {  // unused temporarily
+    uint8_t LFNOrd;         // 长文件名序号
+    uint16_t LFNPart1[5];   // 长文件名的第一部分
+    uint8_t LFNAttributes;  // 文件属性标志
+    uint8_t LFNReserved1;   // 保留字段，应为0x00
+    uint8_t LFNChecksum;    // 校验和
+    uint16_t LFNPart2[6];   // 长文件名的第二部分
+    uint16_t LFNReserved2;  // 保留字段，应为0x0000
+    uint16_t LFNPart3[2];   // 长文件名的第三部分
+};
+BPB bpb;
+vector<int> tabFAT;
+vector<Entry> rootEntry, dataEntry;
+
+void init(char* str) {
+    
+}
 ```
-int getAddrFAT(int id){}	
-int getAddrClus(int id){}
-int getFileType(){}	//获取文件类型 文件/子目录
-int countChildren(){}	//计算子文件/目录个数
-int getFileSize(){}
+
+
+
+**以下代码慎重参考，个人风格较强。**（好吧个人风格没写到 QwQ）。
+
+使用一个全局的 vector 来存储答案：
+
 ```
+vector<char> res;
+```
+
+将 `ls` 与 `ls -l` 集成：
+
+```c++
+void ls(int id, char dirName[], char args[]) {
+	// 判定是否存在-l
+	// 根据dirName提取簇号id
+	visit(id);
+}
+void visit(int id) {
+    // output information ID
+    visit(getBeginClus(id));
+	visit(getNextClus(id));
+}
+int getType(int id) {	// 判断目录/文件
+    
+}
+char* getInformation(int id) {	
+    
+}
+int getFileSize(int id){
+    
+}
+int getNextClus(int id) {
+    
+}
+int getBeginClus(int id){
+    
+}
+```
+
+
 
