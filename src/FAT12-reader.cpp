@@ -1,4 +1,5 @@
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <regex>
 #include <string>
@@ -7,33 +8,56 @@
 using namespace std;
 #define mp(x, y) make_pair((x), (y))
 #define pii pair<int, int>
+#define ui unsigned int
 
 const int N = 1e6 + 6;
+bool isLower(char ch) {
+    return ch >= 'a' && ch <= 'z';
+}
+bool isUpper(char ch) {
+    return ch >= 'A' && ch <= 'Z';
+}
+bool isDigit(char ch) {
+    return ch >= '0' && ch <= '9';
+}
+bool isDot(char ch) {
+    return ch == '.';
+}
+
+int getChId(char ch) {
+    if ('a' <= ch && ch <= 'z')
+        return ch - 'a';
+    else if ('A' <= ch && ch <= 'Z')
+        return ch - 'A' + 26;
+    else
+        return -1;
+}
 
 myString imgData;
 struct BPB {                  // 11-35  25Bytes
-    uint16_t BPB_BytsPerSec;  // 每扇区字节数
-    uint8_t BPB_SecPerClus;   // 每簇扇区数
-    uint16_t BPB_RsvdSecCnt;  // Boot记录占用的扇区数
-    uint8_t BPB_NumFATs;      // FAT表个数
-    uint16_t BPB_RootEntCnt;  // 根目录最大文件数
-    uint16_t BPB_TotSec16;    // 扇区总数
-    uint8_t BPB_Media;        // 介质描述符
-    uint16_t BPB_FATSz16;     // 每个FAT表所占扇区数
-    uint16_t BPB_SecPerTrk;   // 每磁道扇区数（Sector/track）
-    uint16_t BPB_NumHeads;    // 磁头数（面数）
-    uint32_t BPB_HiddSec;     // 隐藏扇区数
-    uint32_t BPB_TotSec32;    // 如果BPB_ToSec16为0，该值为扇区数
+    uint16_t BPB_BytsPerSec;  // 每扇区字节数 512
+    uint8_t BPB_SecPerClus;   // 每簇扇区数 1
+    uint16_t BPB_RsvdSecCnt;  // Boot记录占用的扇区数 1
+    uint8_t BPB_NumFATs;      // FAT表个数 2
+    uint16_t BPB_RootEntCnt;  // 根目录最大文件数 224
+    uint16_t BPB_TotSec16;    // 扇区总数 2880
+    uint8_t BPB_Media;        // 介质描述符 240
+    uint16_t BPB_FATSz16;     // 每个FAT表所占扇区数 9
+    uint16_t BPB_SecPerTrk;   // 每磁道扇区数（Sector/track） 18
+    uint16_t BPB_NumHeads;    // 磁头数（面数） 2
+    uint32_t BPB_HiddSec;     // 隐藏扇区数 0
+    uint32_t BPB_TotSec32;  // 如果BPB_ToSec16为0，该值为扇区数 1610612736
 };
 
 struct Entry {              // 32 Bytes
-    char FILE_Name[11];     // 长度名+扩展名
+    char FILE_Name[11];     // 文件名+扩展名
     uint8_t FILE_Attr;      // 文件属性
     char reserved[10];      // 保留位
     uint16_t DIR_WrtTime;   // 最后一次写入时间
     uint16_t DIR_WrtDate;   // 最后一次写入日期
     uint16_t DIR_FstClus;   // 开始簇号
     uint32_t DIR_FileSize;  // 文件大小
+    myString fileName;      // 文件名
 
     bool isDir() { return this->FILE_Attr & 0x10; }
 };
@@ -83,7 +107,9 @@ Entry getEntery(myString str) {
 
 BPB bpb;
 vector<int> tabFAT;
-vector<Entry> rootEntry, dataEntry;
+vector<Entry> rootEntry;
+vector<vector<Entry> > clusEntry;
+vector<int> beginRootFile;
 vector<myString> command_list = {"ls", "cat"};
 vector<char> ls_options = {'l'}, cat_options = {};
 
@@ -108,69 +134,198 @@ struct Command {
     }
 };
 
-void init(myString str);                           // 初始化
-bool optionExist(char ch, myString opName);        // 判断选项是否存在
-int getChId(char ch);                              // 获取选项的id
-bool lExist(int opt);                              // 判断是否存在l选项
-int getNextClus(int dataEntryId);                  // 获取下一个簇
-pii countChildren(Entry entry);                    // 子目录计数
-unsigned int getSize(Entry entry);                 // 获取文件大小
-pii countChildrenRoot();                           // 根目录计数
-myString getEntryInfo(Entry entry, bool flag);     // 获取文件信息
-myString getEntryName(Entry entry);                // 获取文件名
-myString lsRoot(int opt);                          // 根目录ls
-myString ls(Entry entry, myString path, int opt);  // ls
-myString getClusData(int id);                      // 获取簇数据
-myString cat(Entry entry);                         // cat
+void init(myString str);                     // 初始化
+bool optionExist(char ch, myString opName);  // 判断选项是否存在
+bool lExist(int opt);                        // 判断是否存在l选项
+int getNextClus(int dataEntryId);            // 获取下一个簇
+ui getSize(Entry entry);                     // 获取文件大小
+pii countChildren(Entry entry);              // 子目录计数
+pii countChildrenRoot();                     // 根目录计数
+myString getEntryInfo(Entry entry, bool flag = false);  // 获取文件信息
+myString getEntryName(Entry entry);                     // 获取文件名
+myString lsRoot(int opt);                               // 根目录ls
+myString ls(Entry entry, myString path, int opt);       // ls
+myString getClusData(int id);                           // 获取簇数据
+myString cat(Entry entry);                              // cat
 Entry getEntry(myString path);         // 根据最简化路径获取Entry
 myString getStartPath(myString path);  // 根据完整路径获取起始最简化路径
-vector<Entry> getChildrens(Entry, bool flag);  // 获取某个目录的所有孩子
-Command get_command(myString input);	// 解析命令，获取操作名、参数、目标目录
-
+vector<Entry> getChildrens(Entry, bool flag = false);  // 获取某个目录的所有孩子
+Command get_command(myString input);  // 解析命令，获取操作名、参数、目标目录
+myString getSpecialName(Entry entry);  // 获取特殊文件名(前一个目录的)
+myString getNormalName(Entry entry);  // 获取普通文件名
+bool shouldLowerCase(myString str);   // 判断是否需要获取小写名
 
 int main(int argc, char* argv[]) {
+    // 打开镜像文件
+    // myString imgPath = argv[1];
+    string imgPath = "./a.img";
+    ifstream inputFile(imgPath, ios::binary);
+    if (!inputFile.is_open()) {
+        cerr << "无法打开镜像文件" << std::endl;
+        return 0;
+    }
+    // 读取镜像文件
+    vector<char> buffer(std::istreambuf_iterator<char>(inputFile), {});
+    inputFile.close();
+    imgData = myString(buffer);
+    // 初始化
+    init(imgData);
+    Entry myentry = rootEntry[0];
+    printf("%s\n", lsRoot((1 << getChId('l'))).toCharArray());
+    vector<Entry> children = getChildrens(myentry);
     return 0;
+}
+
+bool shouldLowerCase(myString str) {
+    if (!str.startWith("A"))
+        return false;
+    // 出现过小写字母
+    int len = str.length();
+    for (int i = 1; i < len; i += 2) {
+        if (isLower(str.charAt(i))) {
+            return true;
+        } else if (!isUpper(str.charAt(i)) && !isDigit(str.charAt(i)) &&
+                   !isDot(str.charAt(i))) {
+            return false;
+        }
+    }
+    return false;
+}
+
+myString getSpecialName(myString str) {
+    myString res;
+    int len = str.length();
+    for (int i = 1; i < len; i += 2) {
+        char c = str.charAt(i);
+        if (isLower(c) || isUpper(c) || isDot(c) || isDigit(c)) {
+            res.append(c);
+        } else {
+            return res;
+        }
+    }
+    return res;
+}
+
+myString getNormalName(myString str) {
+    if (str.startWith(".."))
+        return "..";
+    else if (str.startWith("."))
+        return ".";
+    myString res;
+    for (int i = 0; i < 8; i++) {
+        char c = str[i];
+        if (!isUpper(c) && !isDigit(c)) {
+            break;
+        }
+        res.append(c);
+    }
+    if (res.isEmpty())
+        return res;  // 文件名为空
+    for (int i = 8; i < 11; i++) {
+        char c = str[i];
+        if (!isUpper(c) && !isDigit(c)) {
+            break;
+        }
+        if (i == 8) {
+            res.append('.');
+        }
+        res.append(c);
+    }
+    return res;
 }
 
 void init(myString str) {
     bpb = getBPB(str.subString(11, 35));
-    int beginFAT, endFAT, beginRoot;
+    int beginFAT, lenFAT, beginRoot, maxRootLen;
     beginFAT = bpb.BPB_RsvdSecCnt * bpb.BPB_BytsPerSec;
-    endFAT = beginFAT + bpb.BPB_FATSz16 * bpb.BPB_BytsPerSec;
-    beginRoot =
-        beginFAT + bpb.BPB_NumFATs * bpb.BPB_FATSz16 * bpb.BPB_BytsPerSec;
-    beginData = beginRoot + bpb.BPB_RootEntCnt * 32;
+    lenFAT = bpb.BPB_FATSz16 * bpb.BPB_BytsPerSec;
+    beginRoot = beginFAT + (lenFAT * bpb.BPB_NumFATs);
+    maxRootLen = bpb.BPB_RootEntCnt * 32;
+    beginData =
+        beginRoot + maxRootLen + bpb.BPB_BytsPerSec * bpb.BPB_SecPerClus;
     // FAT:
-    int lenFAT = endFAT - beginFAT;
     for (int i = 0, a = 0, b = 0; i < lenFAT; i++) {
         if (i % 3 == 0) {
-            a = (int)str.charAt(beginFAT + i);
+            a = str.charAt(beginFAT + i);
         } else if (i % 3 == 1) {
             a <<= 4;
-            a += ((int)str.charAt(beginFAT + i)) >> 4;
+            a += (str.charAt(beginFAT + i)) >> 4;
             tabFAT.push_back(a);
-            b = ((int)str.charAt(beginFAT + i) & 0x0F);
+            b = (str.charAt(beginFAT + i) & 0x0F);
 
         } else if (i % 3 == 2) {
             b <<= 8;
-            b += (int)str.charAt(beginFAT + i);
+            b += str.charAt(beginFAT + i);
             tabFAT.push_back(b);
         }
     }
+
     // rootEntry:
-    for (int i = beginRoot; i < beginData; i += 32) {
-        if (i + 32 > beginData ||
-            getEntery(str.subString(i, i + 32)).FILE_Name[0] == 0x00)
+    for (int i = 0; i < maxRootLen; i += 32) {
+        if (str.subString(beginRoot + i, beginRoot + i + 32).charAt(0) == 0x00)
             break;
-        rootEntry.push_back(getEntery(str.subString(i, i + 32)));
+        rootEntry.push_back(
+            getEntery(str.subString(beginRoot + i, beginRoot + i + 32)));
+        beginRootFile.push_back(beginRoot + i);
     }
+
     // dataEntry:
+    clusEntry.push_back(vector<Entry>());
+    clusEntry.push_back(vector<Entry>());
+    clusEntry.push_back(vector<Entry>());
     int len = str.length();
-    for (int i = beginData; i < len; i += 32) {
-        if (i + 32 > len)
-            break;
-        dataEntry.push_back(getEntery(str.subString(i, i + 32)));
+    for (int i = beginData; i < len; i += 512) {
+        vector<Entry> dataEntry;
+        for (int j = i; j < i + 512 && j < len; j += 32) {
+            dataEntry.push_back(getEntery(str.subString(j, j + 32)));
+        }
+        for (int j = 0, pos = i; j < dataEntry.size(); j++, pos += 32) {
+            if (j > 0 && shouldLowerCase(str.subString(pos - 32, pos))) {
+                dataEntry[j].fileName =
+                    getSpecialName(str.subString(pos - 32, pos));
+                dataEntry[j - 1].fileName = "";
+            } else {
+                dataEntry[j].fileName =
+                    getNormalName(str.subString(pos, pos + 11));
+            }
+        }
+        for (int j = 0; j < dataEntry.size(); j++) {
+            if (dataEntry[j].fileName.isEmpty()) {
+                dataEntry.erase(dataEntry.begin() + j);
+                j--;
+            }
+        }
+        clusEntry.push_back(dataEntry);
     }
+    // errorNode:
+    errorNode.DIR_FstClus = -1;
+    // 获取根目录区文件名
+    for (int i = 0; i < rootEntry.size(); i++) {
+        int pos = beginRootFile[i];
+        if (i > 0 && shouldLowerCase(imgData.subString(pos - 32, pos))) {
+            rootEntry[i].fileName =
+                getSpecialName(imgData.subString(pos - 32, pos));
+            rootEntry[i - 1].fileName = "";
+        } else {
+            rootEntry[i].fileName =
+                getNormalName(imgData.subString(pos, pos + 11));
+        }
+    }
+    // 剔除无关数据
+    for (int i = 0; i < rootEntry.size(); i++) {
+        if (rootEntry[i].fileName.isEmpty()) {
+            rootEntry.erase(rootEntry.begin() + i);
+            beginRootFile.erase(beginRootFile.begin() + i);
+            i--;
+        }
+    }
+    for (int i = 0; i < tabFAT.size(); i++) {
+        if (tabFAT[i] == 0) {
+            tabFAT[i] = -1;
+        }
+    }
+
+    // errorNode.DIR_FstClus = -1;
 }
 
 bool optionExist(char ch, myString opName = "ls") {
@@ -190,15 +345,6 @@ bool optionExist(char ch, myString opName = "ls") {
     return false;
 }
 
-int getChId(char ch) {
-    if ('a' <= ch && ch <= 'z')
-        return ch - 'a';
-    else if ('A' <= ch && ch <= 'Z')
-        return ch - 'A' + 26;
-    else
-        return -1;
-}
-
 bool lExist(int opt) {
     int lId = getChId('l');
     return opt >> lId & 1;
@@ -206,26 +352,28 @@ bool lExist(int opt) {
 
 int getNextClus(int dataEntryId) {
     int temp = tabFAT[dataEntryId];
-    if (temp >= 0xff7)
+    if (temp >= 0xff7 || temp <= 0)
         return -1;
     return temp;
 }
 
 pii countChildren(Entry entry) {
-    int beg = entry.DIR_FstClus;
     int cntDir = 0, cntFile = 0;
-    while (beg != -1) {
-        if (dataEntry[beg].isDir())
+    int now = entry.DIR_FstClus;
+    vector<Entry> children = getChildrens(entry);
+    for (auto child : children) {
+        if (child.fileName.equals(".") || child.fileName.equals(".."))
+            continue;
+        if (child.isDir())
             ++cntDir;
         else
             ++cntFile;
-        beg = getNextClus(beg);
     }
     return mp(cntDir, cntFile);
 }
 
-unsigned int getSize(Entry entry) {
-    return entry.DIR_FileSize;
+ui getSize(Entry entry) {
+    return (ui)entry.DIR_FileSize;
 }
 
 pii countChildrenRoot() {
@@ -239,10 +387,10 @@ pii countChildrenRoot() {
     return mp(cntDir, cntFile);
 }
 
-myString getEntryInfo(Entry entry, bool flag = false) {
+myString getEntryInfo(Entry entry, bool flag) {
     myString res;
     pii temp;
-    if (!flag && !entry.isDir()) {
+    if (!flag && !entry.isDir()) {  // 不是根且不是目录,是文件
         res = myString(getSize(entry));
     } else {
         if (flag) {
@@ -252,13 +400,13 @@ myString getEntryInfo(Entry entry, bool flag = false) {
         }
         res = myString(temp.first);
         res.append(' ');
-        res.append(temp.second);
+        res.append(myString(temp.second));
     }
     return res;
 }
 
 myString getEntryName(Entry entry) {
-    return myString(entry.FILE_Name);
+    return entry.fileName;
 }
 
 myString lsRoot(int opt) {
@@ -266,13 +414,18 @@ myString lsRoot(int opt) {
     if (lExist(opt)) {
         res.append(' ');
         res.append(getEntryInfo(rt, true));
+        printf("%", getEntryInfo(rt, true).toCharArray());
     }
     res.append(":\n");
+    if (lExist(opt))
+        res.append(".\n..\n");
+    else
+        res.append('. .. ');
     for (auto entry : rootEntry) {
         if (entry.isDir()) {
-            res.append(myString(entry.FILE_Name));
+            res.append(entry.fileName);
         } else {
-            res.append(myString(entry.FILE_Name));
+            res.append(entry.fileName);
         }
         res.append(' ');
         if (lExist(opt)) {
@@ -285,8 +438,7 @@ myString lsRoot(int opt) {
     myString path("/");
     for (auto entry : rootEntry) {
         if (entry.isDir()) {
-            res.append(
-                ls(entry, path.aggregate(myString(entry.FILE_Name)), opt));
+            res.append(ls(entry, path.aggregate(entry.fileName), opt));
         }
     }
     return res;
@@ -301,33 +453,31 @@ myString ls(Entry entry, myString path, int opt) {
     }
     res.append(":\n");
     int now = entry.DIR_FstClus;
-    Entry child;
-    while (now != -1) {
-        child = dataEntry[now];
+    vector<Entry> children = getChildrens(entry);
+    for (auto child : children) {
         if (child.isDir()) {
-            res.append(myString(child.FILE_Name));
+            res.append(child.fileName);
         } else {
-            res.append(myString(child.FILE_Name));
+            res.append(child.fileName);
         }
         res.append(' ');
         if (lExist(opt)) {
-            res.append(getEntryInfo(child));
+            if (!child.fileName.equals(".") && !child.fileName.equals(".."))
+                res.append(getEntryInfo(child));
             res.append('\n');
         }
-        now = getNextClus(now);
     }
     res.removeTail(' ');
     res.append('\n');
 
-    now = entry.DIR_FstClus;
-    Entry child;
-    while (now != -1) {
-        child = dataEntry[now];
+    for (auto child : children) {
+        if (child.fileName.equals(".") || child.fileName.equals(".."))
+            continue;
+
         if (child.isDir()) {
             res.append(
-                ls(child, path.aggregate(myString(child.FILE_Name)), opt));
+                ls(child, path.aggregate(myString("/") + child.fileName), opt));
         }
-        now = getNextClus(now);
     }
     return res;
 }
@@ -356,8 +506,9 @@ Entry getEntry(myString path) {
     Entry res = rt;
     for (int i = 1; i < dirs.size(); i++) {
         bool flag = false;
-        for (auto entry : dataEntry) {
-            if (myString(entry.FILE_Name).equals(dirs[i])) {
+        vector<Entry> childrens = getChildrens(res);
+        for (auto entry : childrens) {
+            if (entry.fileName.equals(dirs[i])) {
                 res = entry;
                 flag = true;
                 break;
@@ -371,16 +522,16 @@ Entry getEntry(myString path) {
     return res;
 }
 
-vector<Entry> getChildrens(Entry entry, bool flag = false) {
+vector<Entry> getChildrens(Entry entry, bool flag) {
     if (flag) {
         return rootEntry;
     }
     vector<Entry> res;
     int now = entry.DIR_FstClus;
-    Entry child;
     while (now != -1) {
-        child = dataEntry[now];
-        res.push_back(child);
+        for (auto children : clusEntry[now]) {
+            res.push_back(children);
+        }
         now = getNextClus(now);
     }
     return res;
@@ -413,7 +564,7 @@ myString getStartPath(myString path) {
             }
         } else {
             for (auto entry : childrens) {
-                if (myString(entry.FILE_Name).equals(dirs[i])) {
+                if (entry.fileName.equals(dirs[i])) {
                     res = entry;
                     if (resPath.equals("/"))
                         resPath = resPath + dirs[i];
@@ -441,7 +592,7 @@ Command get_command(myString input) {
     res.opName = temp[0];
     bool flag = false;
     for (auto command : command_list) {
-        if (command.equals(res.opName)) {
+        if (res.opName.equals(command)) {
             flag = true;
             break;
         }
@@ -460,7 +611,8 @@ Command get_command(myString input) {
             for (int j = 1; j < str.length(); j++) {
                 int id = getChId(str.charAt(j));
                 if (id == -1 || !optionExist(str.charAt(j), res.opName)) {
-                    res.setError(myString("Invalid option -- '")+str.charAt(j)+"'");
+                    res.setError(myString("Invalid option -- '") +
+                                 str.charAt(j) + "'");
                     return res;
                 }
                 res.opParam |= 1 << id;

@@ -26,30 +26,38 @@ class myString {
         return;
     }
 
-    myString(int x, bool flag = false) {
-        if (!flag)
-            mystr.clear();
-        if (x == 0) {
-            if (!flag)
-                mystr.push_back('0');
-            return;
-        } else if (x < 0) {
-            mystr.push_back('-');
-            x = -x;
-        } else {
-            myString(x / 10, true);
-            mystr.push_back(x % 10);
-        }
+    myString(int x) {
+		mystr.clear();
+		if (x==0) {
+			mystr.push_back('0');
+			return;
+		}
+		bool flag = false;
+		if (x<0){
+			flag = true;
+			x = -x;
+		}
+		while (x) {
+			mystr.push_back(x%10+'0');
+			x/=10;
+		}
+		if (flag) {
+			mystr.push_back('-');
+		}
+		std::reverse(mystr.begin(), mystr.end());
     }
 
-    myString(unsigned int x, bool flag = false) {
-        if (x == 0) {
-            if (!flag)
-                mystr.push_back('0');
-            return;
-        }
-        myString(x / 10, true);
-        mystr.push_back(x % 10);
+    myString(unsigned int x) {
+		mystr.clear();
+		if (x==0) {
+			mystr.push_back('0');
+			return;
+		}
+		while (x) {
+			mystr.push_back(x%10+'0');
+			x/=10;
+		}
+		std::reverse(mystr.begin(), mystr.end());		
     }
 
     myString(std::string str) {
@@ -58,14 +66,29 @@ class myString {
             mystr.push_back(c);
         }
     }
-    myString(char str[]) {
+
+    myString(char str[], int len = -1) {
         mystr.clear();
-        for (int i = 0;; i++) {
-            if (str[i] == '\0')
-                return;
-            mystr.push_back(str[i]);
+        if (len == -1) {
+            for (int i = 0;; i++) {
+                if (str[i] == '\0')
+                    return;
+                mystr.push_back(str[i]);
+            }
+        } else {
+            for (int i = 0; i < len; i++) {
+                mystr.push_back(str[i]);
+            }
         }
     }
+
+    myString(std::vector<char> str) {
+        mystr.clear();
+        for (auto c : str) {
+            mystr.push_back(c);
+        }
+    }
+
     // append:
     void append(std::string str) {
         for (auto c : str) {
@@ -92,12 +115,15 @@ class myString {
         for (int i = 0; i < size; i++) {
             charArray[i] = mystr[i];
         }
-        charArray[size + 1] = '\0';
+        charArray[size] = '\0';
         return charArray;
     }
 
     std::string toString() {
-        std::string str(mystr.data());
+        std::string str("");
+        for (int i = 0; i < mystr.size(); i++) {
+            str.push_back(mystr[i]);
+        }
         return str;
     }
 
@@ -161,14 +187,25 @@ class myString {
         res.append(str);
         return res;
     }
-    myString removeTail(char ch) {
+    void removeTail(char ch) {
         int len = this->getLength();
         while (len > 0 && this->mystr[len - 1] == ch) {
             mystr.pop_back();
             --len;
         }
     }
-    bool equals(myString str) { return this->toString() == str.toString(); }
+
+    bool equals(myString str) {
+        if (this->getLength() != str.getLength()) {
+            return false;
+        }
+        for (int i = 0; i < this->getLength(); i++) {
+            if (this->charAt(i) != str.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     void replace(std::regex pattern, myString str) {
         std::string s = this->toString();
@@ -225,14 +262,14 @@ class myString {
     myString operator+(int x) {
         myString res;
         res.append(this->toCharArray());
-        res.append(myString(x, true));
+        res.append(myString(x));
         return res;
     }
 
     myString operator+(unsigned int x) {
         myString res;
         res.append(this->toCharArray());
-        res.append(myString(x, true));
+        res.append(myString(x));
         return res;
     }
 
@@ -259,87 +296,12 @@ class myString {
     }
 
     myString operator+=(int x) {
-        this->append(myString(x, true));
+        this->append(myString(x));
         return *this;
     }
 
     myString operator+=(unsigned int x) {
-        this->append(myString(x, true));
-        return *this;
-    }
-
-    myString operator+=(char* str) {
-        this->append(str);
-        return *this;
-    }
-
-    // operator:
-    char operator[](int index) { return this->charAt(index); }
-
-    myString operator+(myString str) {
-        myString res;
-        res.append(this->toCharArray());
-        res.append(str);
-        return res;
-    }
-
-    myString operator+(std::string str) {
-        myString res;
-        res.append(this->toCharArray());
-        res.append(str);
-        return res;
-    }
-
-    myString operator+(char ch) {
-        myString res;
-        res.append(this->toCharArray());
-        res.append(ch);
-        return res;
-    }
-
-    myString operator+(int x) {
-        myString res;
-        res.append(this->toCharArray());
-        res.append(myString(x, true));
-        return res;
-    }
-
-    myString operator+(unsigned int x) {
-        myString res;
-        res.append(this->toCharArray());
-        res.append(myString(x, true));
-        return res;
-    }
-
-    myString operator+(char* str) {
-        myString res;
-        res.append(this->toCharArray());
-        res.append(str);
-        return res;
-    }
-
-    myString operator+=(myString str) {
-        this->append(str);
-        return *this;
-    }
-
-    myString operator+=(std::string str) {
-        this->append(str);
-        return *this;
-    }
-
-    myString operator+=(char ch) {
-        this->append(ch);
-        return *this;
-    }
-
-    myString operator+=(int x) {
-        this->append(myString(x, true));
-        return *this;
-    }
-
-    myString operator+=(unsigned int x) {
-        this->append(myString(x, true));
+        this->append(myString(x));
         return *this;
     }
 
