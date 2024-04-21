@@ -139,8 +139,9 @@ bool optionExist(char ch, myString opName);  // 判断选项是否存在
 bool lExist(int opt);                        // 判断是否存在l选项
 int getNextClus(int dataEntryId);            // 获取下一个簇
 ui getSize(Entry entry);                     // 获取文件大小
-pii countChildren(Entry entry);              // 子目录计数
-pii countChildrenRoot();                     // 根目录计数
+vector<Entry> getChildrens(Entry, bool flag = false);  // 获取某个目录的所有孩子
+pii countChildren(Entry entry);                        // 子目录计数
+pii countChildrenRoot();                               // 根目录计数
 myString getEntryInfo(Entry entry, bool flag = false);  // 获取文件信息
 myString getEntryName(Entry entry);                     // 获取文件名
 myString lsRoot(int opt);                               // 根目录ls
@@ -149,11 +150,11 @@ myString getClusData(int id);                           // 获取簇数据
 myString cat(Entry entry);                              // cat
 Entry getEntry(myString path);         // 根据最简化路径获取Entry
 myString getStartPath(myString path);  // 根据完整路径获取起始最简化路径
-vector<Entry> getChildrens(Entry, bool flag = false);  // 获取某个目录的所有孩子
 Command get_command(myString input);  // 解析命令，获取操作名、参数、目标目录
 myString getSpecialName(Entry entry);  // 获取特殊文件名(前一个目录的)
 myString getNormalName(Entry entry);  // 获取普通文件名
 bool shouldLowerCase(myString str);   // 判断是否需要获取小写名
+void work();
 
 int main(int argc, char* argv[]) {
     // 打开镜像文件
@@ -170,9 +171,12 @@ int main(int argc, char* argv[]) {
     imgData = myString(buffer);
     // 初始化
     init(imgData);
-    Entry myentry = rootEntry[0];
-    printf("%s\n", lsRoot((1 << getChId('l'))).toCharArray());
-    vector<Entry> children = getChildrens(myentry);
+    // printf("%s\n", lsRoot((1 << getChId('l'))).toCharArray());
+    // Entry myentry = rootEntry[0];
+    // printf("%s\n", cat(myentry).toCharArray());
+    // vector<Entry> children = getChildrens(myentry);
+
+    work();
     return 0;
 }
 
@@ -243,31 +247,52 @@ void init(myString str) {
     maxRootLen = bpb.BPB_RootEntCnt * 32;
     beginData =
         beginRoot + maxRootLen + bpb.BPB_BytsPerSec * bpb.BPB_SecPerClus;
+
     // FAT:
     for (int i = 0, a = 0, b = 0; i < lenFAT; i++) {
+        // ABCDEF
+
+        /*
+                bytes[] = ABCDEF
+                FAT[28]=29 DAB
+                FAT[29]=30 EFC
+        */
         if (i % 3 == 0) {
             a = str.charAt(beginFAT + i);
         } else if (i % 3 == 1) {
-            a <<= 4;
-            a += (str.charAt(beginFAT + i)) >> 4;
+            a |= (((str.charAt(beginFAT + i)) & 0x0F) << 8);
             tabFAT.push_back(a);
-            b = (str.charAt(beginFAT + i) & 0x0F);
+            b = (str.charAt(beginFAT + i) & 0xF0) >> 4;
 
         } else if (i % 3 == 2) {
-            b <<= 8;
-            b += str.charAt(beginFAT + i);
+            b |= (int)str.charAt(beginFAT + i) << 4;
             tabFAT.push_back(b);
         }
     }
 
     // rootEntry:
-    for (int i = 0; i < maxRootLen; i += 32) {
-        if (str.subString(beginRoot + i, beginRoot + i + 32).charAt(0) == 0x00)
+    for (int i = 0; (i << 5) < maxRootLen; i++) {
+        int pos = beginRoot + (i << 5);
+        char c = str.subString(pos, pos + 32).charAt(0);
+        if (!isUpper(c) && !isDigit(c))
             break;
-        rootEntry.push_back(
-            getEntery(str.subString(beginRoot + i, beginRoot + i + 32)));
-        beginRootFile.push_back(beginRoot + i);
+        rootEntry.push_back(getEntery(str.subString(pos, pos + 32)));
+        if (i > 0 && shouldLowerCase(str.subString(pos - 32, pos))) {
+            rootEntry[i].fileName =
+                getSpecialName(str.subString(pos - 32, pos));
+            rootEntry[i - 1].fileName = "";
+        } else {
+            rootEntry[i].fileName = getNormalName(str.subString(pos, pos + 32));
+        }
+        beginRootFile.push_back(pos);
     }
+    // for (int i = 0; i < rootEntry.size(); i++) {
+    //     if (rootEntry[i].fileName.isEmpty()) {
+    //         rootEntry.erase(rootEntry.begin() + i);
+    //		beginRootFile.erase(beginRootFile.begin() + i);
+    //        i--;
+    //    }
+    //}
 
     // dataEntry:
     clusEntry.push_back(vector<Entry>());
@@ -299,28 +324,9 @@ void init(myString str) {
     }
     // errorNode:
     errorNode.DIR_FstClus = -1;
-    // 获取根目录区文件名
-    for (int i = 0; i < rootEntry.size(); i++) {
-        int pos = beginRootFile[i];
-        if (i > 0 && shouldLowerCase(imgData.subString(pos - 32, pos))) {
-            rootEntry[i].fileName =
-                getSpecialName(imgData.subString(pos - 32, pos));
-            rootEntry[i - 1].fileName = "";
-        } else {
-            rootEntry[i].fileName =
-                getNormalName(imgData.subString(pos, pos + 11));
-        }
-    }
     // 剔除无关数据
-    for (int i = 0; i < rootEntry.size(); i++) {
-        if (rootEntry[i].fileName.isEmpty()) {
-            rootEntry.erase(rootEntry.begin() + i);
-            beginRootFile.erase(beginRootFile.begin() + i);
-            i--;
-        }
-    }
     for (int i = 0; i < tabFAT.size(); i++) {
-        if (tabFAT[i] == 0) {
+        if (tabFAT[i] == 0 || tabFAT[i] >= 0xff8) {
             tabFAT[i] = -1;
         }
     }
@@ -390,7 +396,7 @@ pii countChildrenRoot() {
 myString getEntryInfo(Entry entry, bool flag) {
     myString res;
     pii temp;
-    if (!flag && !entry.isDir()) {  // 不是根且不是目录,是文件
+    if (!flag && !entry.isDir()) {  // 不是根且不是目录,是文件f
         res = myString(getSize(entry));
     } else {
         if (flag) {
@@ -488,11 +494,20 @@ myString getClusData(int id) {
     return imgData.subString(beg, beg + len);
 }
 
-myString cat(Entry entry) {
+myString cat(Entry entry) {  // entry is a file not a dir
     myString res;
+    int len = getSize(entry);
+    if (len == 0)
+        return res;
+    int cnt = 0;
     int now = entry.DIR_FstClus;
-    while (now != -1) {
-        res.append(getClusData(now));
+    while (now != -1 && cnt < len) {
+        myString rem = getClusData(now);
+        int lenstr = rem.length();
+        for (int i = 0; i < lenstr && cnt < len; i++) {
+            res.append(rem.charAt(i));
+            cnt++;
+        }
         now = getNextClus(now);
     }
     return res;
@@ -629,4 +644,39 @@ Command get_command(myString input) {
             }
         }
     }
+}
+
+void work() {
+    myString input;
+    while (true) {
+        printf(">");
+        input = myString.readLine();
+        Command command = get_command(input);
+        if (command.errorFlag) {
+            printf("%s\n", command.errorMessage.toCharArray());
+            continue;
+        }
+		continue;
+        if (command.opName.equals("ls")) {
+            if (command.target.isEmpty()) {
+                printf("%s\n", lsRoot(command.opParam).toCharArray());
+            } else {
+                Entry entry = getEntry(command.target);
+                if (entry.DIR_FstClus == -1) {
+                    printf("%s\n", command.target.toCharArray());
+                } else {
+                    printf("%s\n", ls(entry, command.target, command.opParam)
+                                       .toCharArray());
+                }
+            }
+        } else if (command.opName.equals("cat")) {
+            Entry entry = getEntry(command.target);
+            if (entry.DIR_FstClus == -1) {
+                printf("%s\n", command.target.toCharArray());
+            } else {
+                printf("%s\n", cat(entry).toCharArray());
+            }
+        }
+    }
+    return;
 }

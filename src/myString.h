@@ -1,12 +1,11 @@
-
 #ifndef MYSTRING_H
 #define MYSTRING_H
+
 
 #include <regex>
 #include <stdexcept>
 #include <string>
 #include <vector>
-
 class myString {
    private:
     std::vector<char> mystr;
@@ -234,6 +233,19 @@ class myString {
         std::string s = this->toString();
         return std::regex_match(s, pattern);
     }
+
+	myString readLine() {
+		myString res;
+		char ch;
+		while (true) {
+			ch = getchar();
+			if (ch == '\n') {
+				break;
+			}
+			res.append(ch);
+		}
+		return res;
+	}
 
     // operator:
     char operator[](int index) { return this->charAt(index); }
