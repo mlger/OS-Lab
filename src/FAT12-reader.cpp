@@ -115,6 +115,7 @@ vector<char> ls_options = {'l'}, cat_options = {};
 
 int beginData;
 Entry rt, errorNode;
+myString colRed = "\033[31m", colRecover = "\033[0m";
 
 struct Command {
     Command()
@@ -155,7 +156,8 @@ myString getSpecialName(Entry entry);  // 获取特殊文件名(前一个目录�
 myString getNormalName(Entry entry);  // 获取普通文件名
 bool shouldLowerCase(myString str);   // 判断是否需要获取小写名
 void work();
-
+void myOutput(myString str);
+extern "C" void print(const char* str);
 int main(int argc, char* argv[]) {
     // 打开镜像文件
     // myString imgPath = argv[1];
@@ -171,13 +173,7 @@ int main(int argc, char* argv[]) {
     imgData = myString(buffer);
     // 初始化
     init(imgData);
-    printf("lg: %s\n", getStartPath("/B").toCharArray());
-    Entry entryB = getEntry(getStartPath("/B"));
-    // printf("%s\n", lsRoot((1 << getChId('l'))).toCharArray());
-    // Entry myentry = rootEntry[0];
-    // printf("%s\n", cat(myentry).toCharArray());
-    // vector<Entry> children = getChildrens(myentry);
-
+    // 执行用户命令
     work();
     return 0;
 }
@@ -423,16 +419,17 @@ myString lsRoot(int opt) {
     if (lExist(opt)) {
         res.append(' ');
         res.append(getEntryInfo(rt, true));
-        printf("%", getEntryInfo(rt, true).toCharArray());
     }
     res.append(":\n");
     if (lExist(opt))
-        res.append(".\n..\n");
+        res.append(colRed + "." + colRecover + "\n" + colRed + ".." +
+                   colRecover + "\n");
     else
-        res.append('. .. ');
+        res.append(colRed + "." + colRecover + " " + colRed + ".." +
+                   colRecover + " ");
     for (auto entry : rootEntry) {
         if (entry.isDir()) {
-            res.append(entry.fileName);
+            res.append(colRed + entry.fileName + colRecover);
         } else {
             res.append(entry.fileName);
         }
@@ -465,7 +462,7 @@ myString ls(Entry entry, myString path, int opt) {
     vector<Entry> children = getChildrens(entry);
     for (auto child : children) {
         if (child.isDir()) {
-            res.append(child.fileName);
+            res.append(colRed + child.fileName + colRecover);
         } else {
             res.append(child.fileName);
         }
@@ -668,13 +665,13 @@ void work() {
     myString input;
     myString res;
     while (true) {
-        printf(">");
+        //printf(">");
+		myOutput(">");
         input.readLine();
-        // printf("%s\n", getStartPath(input).toCharArray());
-        // continue;
         Command command = get_command(input);
         if (command.errorFlag) {
-            printf("%s\n", command.errorMessage.toCharArray());
+            //printf("%s\n", command.errorMessage.toCharArray());
+			myOutput(command.errorMessage);
             continue;
         } else if (command.opName.isEmpty()) {
             continue;
@@ -683,29 +680,38 @@ void work() {
         } else if (command.opName.equals("ls")) {
             if (command.target.equals("/")) {
                 res = lsRoot(command.opParam);
-				res.removeTail('\n');
-				res.append('\n');
-                printf("%s\n", res.toCharArray());
+                res.removeTail('\n');
+                res.append('\n');
+                //printf("%s\n", res.toCharArray());
+				myOutput(res+"\n");
             } else {
                 Entry entry = getEntry(command.target);
                 if (!entry.isDir()) {
-                    printf("%s is not a directory\n",
-                           command.target.toCharArray());
+                    //printf("%s is not a directory\n",
+                    //       command.target.toCharArray());
+					myOutput(command.target + " is not a directory\n");
                 } else {
                     res = ls(entry, command.target, command.opParam);
-					res.removeTail('\n');
-					res.append('\n');
-                    printf("%s\n", res.toCharArray());
+                    res.removeTail('\n');
+                    res.append('\n');
+                    //printf("%s\n", res.toCharArray());
+					myOutput(res+"\n");
                 }
             }
         } else if (command.opName.equals("cat")) {
             Entry entry = getEntry(command.target);
             if (entry.DIR_FstClus == -1) {
-                printf("%s\n", command.target.toCharArray());
+                //printf("%s\n", command.target.toCharArray());
+				myOutput(command.target+"\n");
             } else {
-                printf("%s\n", cat(entry).toCharArray());
+                //printf("%s\n", cat(entry).toCharArray());
+				myOutput(cat(entry)+"\n");
             }
         }
     }
     return;
+}
+
+void myOutput(myString str) {
+	print(str.toCharArray());
 }
