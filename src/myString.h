@@ -1,7 +1,6 @@
 #ifndef MYSTRING_H
 #define MYSTRING_H
 
-
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -26,37 +25,37 @@ class myString {
     }
 
     myString(int x) {
-		mystr.clear();
-		if (x==0) {
-			mystr.push_back('0');
-			return;
-		}
-		bool flag = false;
-		if (x<0){
-			flag = true;
-			x = -x;
-		}
-		while (x) {
-			mystr.push_back(x%10+'0');
-			x/=10;
-		}
-		if (flag) {
-			mystr.push_back('-');
-		}
-		std::reverse(mystr.begin(), mystr.end());
+        mystr.clear();
+        if (x == 0) {
+            mystr.push_back('0');
+            return;
+        }
+        bool flag = false;
+        if (x < 0) {
+            flag = true;
+            x = -x;
+        }
+        while (x) {
+            mystr.push_back(x % 10 + '0');
+            x /= 10;
+        }
+        if (flag) {
+            mystr.push_back('-');
+        }
+        std::reverse(mystr.begin(), mystr.end());
     }
 
     myString(unsigned int x) {
-		mystr.clear();
-		if (x==0) {
-			mystr.push_back('0');
-			return;
-		}
-		while (x) {
-			mystr.push_back(x%10+'0');
-			x/=10;
-		}
-		std::reverse(mystr.begin(), mystr.end());		
+        mystr.clear();
+        if (x == 0) {
+            mystr.push_back('0');
+            return;
+        }
+        while (x) {
+            mystr.push_back(x % 10 + '0');
+            x /= 10;
+        }
+        std::reverse(mystr.begin(), mystr.end());
     }
 
     myString(std::string str) {
@@ -234,17 +233,12 @@ class myString {
         return std::regex_match(s, pattern);
     }
 
-	myString readLine() {
-		myString res;
-		char ch;
-		while (true) {
-			ch = getchar();
-			if (ch == '\n') {
-				break;
-			}
-			res.append(ch);
+    void readLine() {
+		mystr.clear();
+		char c;
+		while ((c = getchar()) != '\n') {
+			mystr.push_back(c);
 		}
-		return res;
 	}
 
     // operator:

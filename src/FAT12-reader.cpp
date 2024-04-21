@@ -171,6 +171,8 @@ int main(int argc, char* argv[]) {
     imgData = myString(buffer);
     // 初始化
     init(imgData);
+    printf("lg: %s\n", getStartPath("/B").toCharArray());
+    Entry entryB = getEntry(getStartPath("/B"));
     // printf("%s\n", lsRoot((1 << getChId('l'))).toCharArray());
     // Entry myentry = rootEntry[0];
     // printf("%s\n", cat(myentry).toCharArray());
@@ -324,6 +326,7 @@ void init(myString str) {
     }
     // errorNode:
     errorNode.DIR_FstClus = -1;
+    rt.FILE_Attr = 0x10;
     // 剔除无关数据
     for (int i = 0; i < tabFAT.size(); i++) {
         if (tabFAT[i] == 0 || tabFAT[i] >= 0xff8) {
@@ -519,9 +522,9 @@ Entry getEntry(myString path) {
     }
     vector<myString> dirs = path.split('/');
     Entry res = rt;
-    for (int i = 1; i < dirs.size(); i++) {
+    for (int i = 0; i < dirs.size(); i++) {
         bool flag = false;
-        vector<Entry> childrens = getChildrens(res);
+        vector<Entry> childrens = getChildrens(res, i == 0);
         for (auto entry : childrens) {
             if (entry.fileName.equals(dirs[i])) {
                 res = entry;
@@ -553,21 +556,28 @@ vector<Entry> getChildrens(Entry entry, bool flag) {
 }
 
 myString getStartPath(myString path) {
+    // 需要/开头
+    if (!path.startWith("/")) {
+        return path + " is not a valid path\n";
+    }
+    // 多个/合并成一个
     path.replace(std::regex("/+"), "/");
+    // 若是根直接返回
     if (path.equals("/")) {
         return "/";
     }
     vector<myString> dirs = path.split('/');
     Entry res = rt;
     myString resPath = "/";
-    for (int i = 1; i < dirs.size(); i++) {
+    for (int i = 0; i < dirs.size(); i++) {
+        // 若定位到文件了，但是还有子文件/目录
         if (i != dirs.size() - 1 && !res.isDir()) {
-            res.DIR_FstClus = -1;
             resPath = resPath + " is not a directory\n";
             break;
         }
         bool flag = false;
-        vector<Entry> childrens = getChildrens(res);
+        // 获取子文件
+        vector<Entry> childrens = getChildrens(res, resPath.equals("/"));
         if (dirs[i].equals(".")) {
             continue;
         } else if (dirs[i].equals("..")) {
@@ -605,6 +615,10 @@ Command get_command(myString input) {
     if (temp.size() == 0)
         return res;
     res.opName = temp[0];
+    if (temp.size() == 1 && (temp[0].equals("q") || temp[0].equals("quit"))) {
+        res.opName = "quit";
+        return res;
+    }
     bool flag = false;
     for (auto command : command_list) {
         if (res.opName.equals(command)) {
@@ -644,29 +658,44 @@ Command get_command(myString input) {
             }
         }
     }
+    if (res.target.isEmpty()) {
+        res.target = "/";
+    }
+    return res;
 }
 
 void work() {
     myString input;
+    myString res;
     while (true) {
         printf(">");
-        input = myString.readLine();
+        input.readLine();
+        // printf("%s\n", getStartPath(input).toCharArray());
+        // continue;
         Command command = get_command(input);
         if (command.errorFlag) {
             printf("%s\n", command.errorMessage.toCharArray());
             continue;
-        }
-		continue;
-        if (command.opName.equals("ls")) {
-            if (command.target.isEmpty()) {
-                printf("%s\n", lsRoot(command.opParam).toCharArray());
+        } else if (command.opName.isEmpty()) {
+            continue;
+        } else if (command.opName.equals("quit")) {
+            break;
+        } else if (command.opName.equals("ls")) {
+            if (command.target.equals("/")) {
+                res = lsRoot(command.opParam);
+				res.removeTail('\n');
+				res.append('\n');
+                printf("%s\n", res.toCharArray());
             } else {
                 Entry entry = getEntry(command.target);
-                if (entry.DIR_FstClus == -1) {
-                    printf("%s\n", command.target.toCharArray());
+                if (!entry.isDir()) {
+                    printf("%s is not a directory\n",
+                           command.target.toCharArray());
                 } else {
-                    printf("%s\n", ls(entry, command.target, command.opParam)
-                                       .toCharArray());
+                    res = ls(entry, command.target, command.opParam);
+					res.removeTail('\n');
+					res.append('\n');
+                    printf("%s\n", res.toCharArray());
                 }
             }
         } else if (command.opName.equals("cat")) {
