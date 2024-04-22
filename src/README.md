@@ -13,7 +13,7 @@ lg@ubuntu:~/Documents/OS/OS-Lab/src$ tree
 
 #### 二、实现功能
 
-包括带参数的 ls、cat，支持小写文件名。
+包括带参数的 ls、cat，支持小写文件名，支持多于 512 字节 cat。
 
 #### 三、代码运行
 

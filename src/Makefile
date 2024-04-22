@@ -1,7 +1,5 @@
 CPP = g++
 NASM = nasm
-#CFLAGS = -g -O2
-CFLAGS = -m32 -g -O2
 
 TARGET = fat12-reader
 SRC = FAT12-reader.cpp 
@@ -14,7 +12,7 @@ all: $(TARGET)
 
 $(TARGET): clean
 	$(NASM) -f elf32 -o $(NASM_TARGET) $(NASM_SRC)
-	$(CPP) $(CFLAGS) -o $@ $(SRC) $(NASM_TARGET)
+	$(CPP) -m32 -o $@ $(SRC) $(NASM_TARGET)
 
 compile: $(TARGET)
 

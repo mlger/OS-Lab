@@ -243,8 +243,7 @@ void init(myString str) {
     lenFAT = bpb.BPB_FATSz16 * bpb.BPB_BytsPerSec;
     beginRoot = beginFAT + (lenFAT * bpb.BPB_NumFATs);
     maxRootLen = bpb.BPB_RootEntCnt * 32;
-    beginData =
-        beginRoot + maxRootLen + bpb.BPB_BytsPerSec * bpb.BPB_SecPerClus;
+    beginData = beginRoot + maxRootLen;
 
     // FAT:
     for (int i = 0, a = 0, b = 0; i < lenFAT; i++) {
@@ -293,9 +292,6 @@ void init(myString str) {
     //}
 
     // dataEntry:
-    clusEntry.push_back(vector<Entry>());
-    clusEntry.push_back(vector<Entry>());
-    clusEntry.push_back(vector<Entry>());
     int len = str.length();
     for (int i = beginData; i < len; i += 512) {
         vector<Entry> dataEntry;
@@ -490,7 +486,7 @@ myString ls(Entry entry, myString path, int opt) {
 
 myString getClusData(int id) {
     int len = bpb.BPB_SecPerClus * bpb.BPB_BytsPerSec;
-    int beg = beginData + (id - 1) * len;
+    int beg = beginData + (id - 2) * len;
     return imgData.subString(beg, beg + len);
 }
 
@@ -544,7 +540,7 @@ vector<Entry> getChildrens(Entry entry, bool flag) {
     vector<Entry> res;
     int now = entry.DIR_FstClus;
     while (now != -1) {
-        for (auto children : clusEntry[now]) {
+        for (auto children : clusEntry[now - 2]) {
             res.push_back(children);
         }
         now = getNextClus(now);
@@ -665,13 +661,13 @@ void work() {
     myString input;
     myString res;
     while (true) {
-        //printf(">");
-		myOutput(">");
+        // printf(">");
+        myOutput(">");
         input.readLine();
         Command command = get_command(input);
         if (command.errorFlag) {
-            //printf("%s\n", command.errorMessage.toCharArray());
-			myOutput(command.errorMessage);
+            // printf("%s\n", command.errorMessage.toCharArray());
+            myOutput(command.errorMessage + '\n');
             continue;
         } else if (command.opName.isEmpty()) {
             continue;
@@ -682,30 +678,33 @@ void work() {
                 res = lsRoot(command.opParam);
                 res.removeTail('\n');
                 res.append('\n');
-                //printf("%s\n", res.toCharArray());
-				myOutput(res+"\n");
+                // printf("%s\n", res.toCharArray());
+                myOutput(res + "\n");
             } else {
                 Entry entry = getEntry(command.target);
                 if (!entry.isDir()) {
-                    //printf("%s is not a directory\n",
-                    //       command.target.toCharArray());
-					myOutput(command.target + " is not a directory\n");
+                    // printf("%s is not a directory\n",
+                    //        command.target.toCharArray());
+                    myOutput(command.target + " is not a directory\n");
                 } else {
                     res = ls(entry, command.target, command.opParam);
                     res.removeTail('\n');
                     res.append('\n');
-                    //printf("%s\n", res.toCharArray());
-					myOutput(res+"\n");
+                    // printf("%s\n", res.toCharArray());
+                    myOutput(res + "\n");
                 }
             }
         } else if (command.opName.equals("cat")) {
             Entry entry = getEntry(command.target);
             if (entry.DIR_FstClus == -1) {
-                //printf("%s\n", command.target.toCharArray());
-				myOutput(command.target+"\n");
+                // printf("%s\n", command.target.toCharArray());
+                myOutput(command.target + "\n");
+            } else if (entry.isDir()) {
+                // printf("%s is a directory\n", command.target.toCharArray());
+                myOutput(command.target + " is a directory\n");
             } else {
-                //printf("%s\n", cat(entry).toCharArray());
-				myOutput(cat(entry)+"\n");
+                // printf("%s\n", cat(entry).toCharArray());
+                myOutput(cat(entry) + "\n");
             }
         }
     }
@@ -713,5 +712,5 @@ void work() {
 }
 
 void myOutput(myString str) {
-	print(str.toCharArray());
+    print(str.toCharArray());
 }
