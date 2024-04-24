@@ -645,9 +645,11 @@ Command get_command(myString input) {
         } else {
             if (res.target.isEmpty()) {
                 res.target = getStartPath(str);
-                if (!res.target.match(regex("/|(/[^/\\s]+)+")))
+                if (!res.target.match(regex("/|(/[^/\\s]+)+"))) {
                     res.setError(res.target);
-                return res;
+                    return res;
+                }
+
             } else {
                 res.setError("Please input only one target a time");
                 return res;
