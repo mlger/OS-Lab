@@ -8,6 +8,8 @@ HEADERS = myString.h
 NASM_SRC = print.asm
 NASM_TARGET = print.o
 
+IMG = lab2.img
+
 all: $(TARGET)
 
 $(TARGET): clean
@@ -23,6 +25,6 @@ clean:
 	rm -f $(TARGET) *.o
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) $(IMG)
 
 .PHONY: all compile gdb clean

@@ -160,9 +160,9 @@ void myOutput(myString str);
 extern "C" void print(const char* str);
 int main(int argc, char* argv[]) {
     // 打开镜像文件
-    // myString imgPath = argv[1];
-    string imgPath = "./a.img";
-    ifstream inputFile(imgPath, ios::binary);
+    myString imgPath = argv[1];
+    // string imgPath = "./a.img";
+    ifstream inputFile(imgPath.toCharArray(), ios::binary);
     if (!inputFile.is_open()) {
         cerr << "无法打开镜像文件" << std::endl;
         return 0;
@@ -469,7 +469,10 @@ myString ls(Entry entry, myString path, int opt) {
             res.append('\n');
         }
     }
-    res.removeTail(' ');
+    if (!lExist(opt)) {
+        res.removeTail(' ');
+        res.append('\n');
+    }
     res.append('\n');
 
     for (auto child : children) {
