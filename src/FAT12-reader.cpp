@@ -513,6 +513,7 @@ myString cat(Entry entry) {  // entry is a file not a dir
 }
 
 Entry getEntry(myString path) {
+	
     if (path.equals("/")) {
         return rt;
     }
