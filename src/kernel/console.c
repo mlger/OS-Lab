@@ -25,6 +25,10 @@ PRIVATE void set_cursor(unsigned int position);
 PRIVATE void set_video_start_addr(u32 addr);
 PRIVATE void flush(CONSOLE* p_con);
 
+PRIVATE REDO_UNDO_STACK redo_stack, undo_stack;
+PRIVATE REDO_UNDO_STACK search_redo_stack, search_undo_stack;
+PRIVATE int is_redo_undo = 0;
+
 /*======================================================================*
                            init_screen
  *======================================================================*/
@@ -66,7 +70,7 @@ PUBLIC int is_current_console(CONSOLE* p_con) {
  *======================================================================*/
 PUBLIC void out_char(CONSOLE* p_con, char ch) {
     u8* p_vmem = (u8*)(V_MEM_BASE + p_con->cursor * 2);
-    //INPUT_RECORD record;
+    INPUT_RECORD record;
     if (mode == 0) {  // Lg: mode0 编辑模式
         switch (ch) {
             case '\n':  // 行内剩余空格标记颜色
@@ -90,10 +94,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                     }
                 }
                 // redo_undo
-                //record.ch = ch;
-                //record.delete_ch = 0;
-                // push_redo_undo_stack(&undo_stack, record);
-                // clear_redo_stack(&redo_stack);
+                if (!is_redo_undo) {
+                    record.ch = ch;
+                    record.delete_ch = 0;
+                    push_redo_undo_stack(&undo_stack, record);
+                    clear_redo_stack(&redo_stack);
+                }
                 break;
             case '\b':  // 退格键
                 if (p_con->cursor > p_con->original_addr) {
@@ -114,10 +120,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                                 break;
                         }
                         // redo_undo
-                        //record.ch = ch;
-                        //record.delete_ch = '\t';
-                        // push_redo_undo_stack(&undo_stack, record);
-                        // clear_redo_stack(&redo_stack);
+                        if (!is_redo_undo) {
+                            record.ch = ch;
+                            record.delete_ch = '\t';
+                            push_redo_undo_stack(&undo_stack, record);
+                            clear_redo_stack(&redo_stack);
+                        }
                     } else if (*(p_vmem - 1) == ENTER_COLOR) {
                         // Lg: 处理换行，删除所有ENTER_COLOR, 直到上一行开始
                         unsigned int line_begin_cursor =
@@ -134,10 +142,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                             p_con->cursor--;
                         }
                         // redo_undo
-                        //record.ch = ch;
-                        //record.delete_ch = '\n';
-                        // push_redo_undo_stack(&undo_stack, record);
-                        // clear_redo_stack(&redo_stack);
+                        if (!is_redo_undo) {
+                            record.ch = ch;
+                            record.delete_ch = '\n';
+                            push_redo_undo_stack(&undo_stack, record);
+                            clear_redo_stack(&redo_stack);
+                        }
                     } else {
                         // 其他情况
                         p_con->cursor--;
@@ -145,10 +155,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                         *(p_vmem - 2) = ' ';
                         *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
                         // redo_undo
-                        //record.ch = ch;
-                        //record.delete_ch = temp;
-                        // push_redo_undo_stack(&undo_stack, record);
-                        // clear_redo_stack(&redo_stack);
+                        if (!is_redo_undo) {
+                            record.ch = ch;
+                            record.delete_ch = temp;
+                            push_redo_undo_stack(&undo_stack, record);
+                            clear_redo_stack(&redo_stack);
+                        }
                     }
                 }
                 break;
@@ -166,15 +178,29 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                     }
                 }
                 // redo_undo
-                //record.ch = ch;
-                //record.delete_ch = 0;
-                // push_redo_undo_stack(&undo_stack, record);
-                // clear_redo_stack(&redo_stack);
+                if (!is_redo_undo) {
+                    record.ch = ch;
+                    record.delete_ch = 0;
+                    push_redo_undo_stack(&undo_stack, record);
+                    clear_redo_stack(&redo_stack);
+                }
                 break;
             case '\r':  // Lg: ESC
                 mode = 1;
                 init_search(p_con);
                 return;
+            case 'Z':
+            case 'z':
+                if (ctrl) {
+                    undo(p_con, &undo_stack, &redo_stack);
+                    return;
+                }
+            case 'Y':
+            case 'y':
+                if (ctrl) {
+                    redo(p_con, &undo_stack, &redo_stack);
+                    return;
+                }
             default:
                 if (p_con->cursor <
                     p_con->original_addr + p_con->v_mem_limit - 1) {
@@ -183,10 +209,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                     p_con->cursor++;
 
                     // redo_undo
-                    //record.ch = ch;
-                    //record.delete_ch = 0;
-                    // push_redo_undo_stack(&undo_stack, record);
-                    // clear_redo_stack(&redo_stack);
+                    if (!is_redo_undo) {
+                        record.ch = ch;
+                        record.delete_ch = 0;
+                        push_redo_undo_stack(&undo_stack, record);
+                        clear_redo_stack(&redo_stack);
+                    }
                 }
                 break;
         }
@@ -203,10 +231,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                     *(p_vmem - 2) = ' ';
                     *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
                     // redo_undo
-                    //record.ch = ch;
-                    //record.delete_ch = temp;
-                    // push_redo_undo_stack(&search_undo_stack, record);
-                    // clear_redo_stack(&search_redo_stack);
+                    if (!is_redo_undo) {
+                        record.ch = ch;
+                        record.delete_ch = temp;
+                        push_redo_undo_stack(&search_undo_stack, record);
+                        clear_redo_stack(&search_redo_stack);
+                    }
                 }
                 break;
                 // case '\r':  // Lg: ESC
@@ -217,6 +247,18 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                 return;
             case '\r':
                 return;
+            case 'Z':
+            case 'z':
+                if (ctrl) {
+                    undo(p_con, &search_undo_stack, &search_redo_stack);
+                    return;
+                }
+            case 'Y':
+            case 'y':
+                if (ctrl) {
+                    redo(p_con, &search_undo_stack, &search_redo_stack);
+                    return;
+                }
             default:
                 if (p_con->cursor <
                     p_con->original_addr + p_con->v_mem_limit - 1) {
@@ -224,10 +266,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                     *p_vmem++ = RED;
                     p_con->cursor++;
                     // redo_undo
-                    //record.ch = ch;
-                    //record.delete_ch = 0;
-                    // push_redo_undo_stack(&search_undo_stack, record);
-                    // clear_redo_stack(&search_redo_stack);
+                    if (!is_redo_undo) {
+                        record.ch = ch;
+                        record.delete_ch = 0;
+                        push_redo_undo_stack(&search_undo_stack, record);
+                        clear_redo_stack(&search_redo_stack);
+                    }
                 }
                 break;
         }
@@ -342,8 +386,8 @@ PUBLIC void exit_search(CONSOLE* p_con) {
     }
     p_con->cursor = p_con->search_cursor;
     p_con->search_cursor = 0;
-    // clear_redo_stack(&search_undo_stack);
-    // clear_redo_stack(&search_redo_stack);
+    clear_redo_stack(&search_undo_stack);
+    clear_redo_stack(&search_redo_stack);
 }
 
 PUBLIC void KMP(CONSOLE* p_con) {
@@ -382,70 +426,74 @@ PUBLIC void KMP(CONSOLE* p_con) {
     }
 }
 
-///*======================================================================*
-//                           redo_undo_methods
-// *======================================================================*/
-//PUBLIC int is_redo_undo_stack_empty(REDO_UNDO_STACK* stack) {
-//    return stack->index == 0;
-//}
+/*======================================================================*
+                           redo_undo_methods
+ *======================================================================*/
+PUBLIC int is_redo_undo_stack_empty(REDO_UNDO_STACK* stack) {
+    return stack->index == 0;
+}
 
-//PUBLIC void push_redo_undo_stack(REDO_UNDO_STACK* stack, INPUT_RECORD record) {
-//    if (stack->index == SCREEN_SIZE) {
-//        for (int i = 0; i < SCREEN_SIZE - 1; i++) {
-//            stack->input_record[i] = stack->input_record[i + 1];
-//        }
-//        stack->index = SCREEN_SIZE - 1;
-//    }
-//    stack->input_record[stack->index++] = record;
-//}
+PUBLIC void push_redo_undo_stack(REDO_UNDO_STACK* stack, INPUT_RECORD record) {
+    if (stack->index == SCREEN_SIZE) {
+        for (int i = 0; i < SCREEN_SIZE - 1; i++) {
+            stack->input_record[i] = stack->input_record[i + 1];
+        }
+        stack->index = SCREEN_SIZE - 1;
+    }
+    stack->input_record[stack->index++] = record;
+}
 
-//PUBLIC INPUT_RECORD pop_redo_undo_stack(REDO_UNDO_STACK* stack) {
-//    if (stack->index == 0) {
-//        INPUT_RECORD record;
-//        record.ch = 0;
-//        record.delete_ch = 0;
-//        return record;
-//    }
-//    return stack->input_record[--stack->index];
-//}
+PUBLIC INPUT_RECORD pop_redo_undo_stack(REDO_UNDO_STACK* stack) {
+    if (stack->index == 0) {
+        INPUT_RECORD record;
+        record.ch = 0;
+        record.delete_ch = 0;
+        return record;
+    }
+    return stack->input_record[--stack->index];
+}
 
-//PUBLIC void clear_redo_stack(REDO_UNDO_STACK* stack) {
-//    stack->index = 0;
-//}
-///*======================================================================*
-//                           undo
-// *----------------------------------------------------------------------*
-// 撤销
-// *----------------------------------------------------------------------*
-// 对撤销栈顶的操作压入重做栈，并进行逆向
-// *======================================================================*/
-//PUBLIC void undo(CONSOLE* p_con,
-//                 REDO_UNDO_STACK* undo_stack,
-//                 REDO_UNDO_STACK* redo_stack) {
-//    if (is_redo_undo_stack_empty(undo_stack))
-//        return;
-//    INPUT_RECORD record = pop_redo_undo_stack(undo_stack);
-//    push_redo_undo_stack(redo_stack, record);
-//    if (record.ch == '\b') {
-//        out_char(p_con, record.delete_ch);
-//    } else {
-//        out_char(p_con, '\b');
-//    }
-//}
+PUBLIC void clear_redo_stack(REDO_UNDO_STACK* stack) {
+    stack->index = 0;
+}
+/*======================================================================*
+                           undo
+ *----------------------------------------------------------------------*
+ 撤销
+ *----------------------------------------------------------------------*
+ 对撤销栈顶的操作压入重做栈，并进行逆向
+ *======================================================================*/
+PUBLIC void undo(CONSOLE* p_con,
+                 REDO_UNDO_STACK* undo_stack,
+                 REDO_UNDO_STACK* redo_stack) {
+    if (is_redo_undo_stack_empty(undo_stack))
+        return;
+    INPUT_RECORD record = pop_redo_undo_stack(undo_stack);
+    push_redo_undo_stack(redo_stack, record);
+	is_redo_undo = 1;
+    if (record.ch == '\b') {
+        out_char(p_con, record.delete_ch);
+    } else {
+        out_char(p_con, '\b');
+    }
+	is_redo_undo = 0;
+}
 
-///*======================================================================*
-//                           redo
-// *----------------------------------------------------------------------*
-// 重做
-// *----------------------------------------------------------------------*
-// 对重做栈顶的操作压入撤销栈，并进行正向
-// *======================================================================*/
-//PUBLIC void redo(CONSOLE* p_con,
-//                 REDO_UNDO_STACK* undo_stack,
-//                 REDO_UNDO_STACK* redo_stack) {
-//    if (is_redo_undo_stack_empty(redo_stack))
-//        return;
-//    INPUT_RECORD record = pop_redo_undo_stack(redo_stack);
-//    push_redo_undo_stack(undo_stack, record);
-//    out_char(p_con, record.ch);
-//}
+/*======================================================================*
+                           redo
+ *----------------------------------------------------------------------*
+ 重做
+ *----------------------------------------------------------------------*
+ 对重做栈顶的操作压入撤销栈，并进行正向
+ *======================================================================*/
+PUBLIC void redo(CONSOLE* p_con,
+                 REDO_UNDO_STACK* undo_stack,
+                 REDO_UNDO_STACK* redo_stack) {
+    if (is_redo_undo_stack_empty(redo_stack))
+        return;
+    INPUT_RECORD record = pop_redo_undo_stack(redo_stack);
+    push_redo_undo_stack(undo_stack, record);
+	is_redo_undo = 1;
+    out_char(p_con, record.ch);
+	is_redo_undo = 0;
+}
