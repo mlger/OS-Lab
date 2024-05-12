@@ -34,4 +34,5 @@ extern	irq_handler	irq_table[];
 extern	TTY		tty_table[];
 extern  CONSOLE         console_table[];
 
-
+EXTERN	int		mode;	
+EXTERN	int		ctrl;	

@@ -15,11 +15,14 @@ ASM		= nasm
 DASM		= ndisasm
 CC		= gcc
 LD		= ld
+BOCHS = bochs
+
 ASMBFLAGS	= -I boot/include/
 ASMKFLAGS	= -I include/ -f elf
 CFLAGS		= -I include/ -c -fno-builtin -m32 -fno-stack-protector
 LDFLAGS		= -s -Ttext $(ENTRYPOINT) -m elf_i386
 DASMFLAGS	= -u -o $(ENTRYPOINT) -e $(ENTRYOFFSET)
+BOCHSCLASS = -f bochsrc
 
 # This Program
 ORANGESBOOT	= boot/boot.bin boot/loader.bin
@@ -118,3 +121,6 @@ lib/kliba.o : lib/kliba.asm
 
 lib/string.o : lib/string.asm
 	$(ASM) $(ASMKFLAGS) -o $@ $<
+
+run: image
+	$(BOCHS) $(BOCHSCLASS)

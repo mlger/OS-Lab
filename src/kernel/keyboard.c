@@ -165,7 +165,8 @@ PUBLIC void keyboard_read(TTY* p_tty)
 			}
 
 			key = keyrow[column];
-
+			ctrl = CTRL_L || CTRL_R;	// Lg: 判定ctrl是否按下
+ 
 			switch(key) {
 			case SHIFT_L:
 				shift_l = make;

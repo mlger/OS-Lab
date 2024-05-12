@@ -91,14 +91,37 @@ PUBLIC int kernel_main()
 }
 
 /*======================================================================*
+                            clean_screen
+ *======================================================================*/
+PUBLIC void clean_screen(){
+	disp_pos = 0;
+	for (int i = 0; i < SCREEN_SIZE; i++){
+		disp_str(" ");
+	}
+	disp_pos = 0;
+	// 清空redo_undo栈
+	//redo_stack.index = 0;
+	//undo_stack.index = 0;
+	//search_redo_stack.index = 0;
+	//search_undo_stack.index = 0;
+
+}
+
+/*======================================================================*
                                TestA
  *======================================================================*/
 void TestA()
 {
 	int i = 0;
 	while (1) {
-		/* disp_str("A."); */
-		milli_delay(10);
+		//disp_str("QwQ ");
+		if (mode == 0) {
+			init_alltty();
+			clean_screen();
+			milli_delay(100000000);
+		}else {
+			milli_delay(10);
+		}
 	}
 }
 
