@@ -25,8 +25,8 @@ PRIVATE void set_cursor(unsigned int position);
 PRIVATE void set_video_start_addr(u32 addr);
 PRIVATE void flush(CONSOLE* p_con);
 
-PRIVATE REDO_UNDO_STACK redo_stack, undo_stack;
-PRIVATE REDO_UNDO_STACK search_redo_stack, search_undo_stack;
+PUBLIC REDO_UNDO_STACK redo_stack, undo_stack;
+PUBLIC REDO_UNDO_STACK search_redo_stack, search_undo_stack;
 PRIVATE int is_redo_undo = 0;
 
 /*======================================================================*
@@ -486,6 +486,12 @@ PUBLIC INPUT_RECORD pop_redo_undo_stack(REDO_UNDO_STACK* stack) {
 
 PUBLIC void clear_redo_stack(REDO_UNDO_STACK* stack) {
     stack->index = 0;
+}
+PUBLIC void clear_all_stack() {
+	clear_redo_stack(&redo_stack);
+	clear_redo_stack(&undo_stack);
+	clear_redo_stack(&search_redo_stack);
+	clear_redo_stack(&search_undo_stack);
 }
 /*======================================================================*
                            undo

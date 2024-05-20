@@ -100,11 +100,7 @@ PUBLIC void clean_screen(){
 	}
 	disp_pos = 0;
 	// 清空redo_undo栈
-	//redo_stack.index = 0;
-	//undo_stack.index = 0;
-	//search_redo_stack.index = 0;
-	//search_undo_stack.index = 0;
-
+	clear_all_stack();
 }
 
 /*======================================================================*
@@ -118,7 +114,7 @@ void TestA()
 		if (mode == 0) {
 			init_alltty();
 			clean_screen();
-			milli_delay(100000000);
+			milli_delay(200000);
 		}else {
 			milli_delay(10);
 		}
