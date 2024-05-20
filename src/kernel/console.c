@@ -105,19 +105,30 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                 if (p_con->cursor > p_con->original_addr) {
                     if (*(p_vmem - 1) == TAB_COLOR) {
                         // Lg: 处理TAB, 定位目标位置: 行开始+4*(行位置/4)、
-                        while (p_con->cursor > p_con->original_addr) {
-                            if (*(p_vmem - 1) == TAB_COLOR) {
-                                *(p_vmem - 2) = ' ';
-                                *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
-                                p_vmem -= 2;
-                                p_con->cursor--;
-                            } else
-                                break;
-                            if (((p_con->cursor - p_con->original_addr) %
-                                 SCREEN_WIDTH) %
-                                    TAB_SIZE ==
-                                0)
-                                break;
+                        // while (p_con->cursor > p_con->original_addr) {
+                        //    if (*(p_vmem - 1) == TAB_COLOR) {
+                        //        *(p_vmem - 2) = ' ';
+                        //        *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
+                        //        p_vmem -= 2;
+                        //        p_con->cursor--;
+                        //    } else
+                        //        break;
+                        //    if (((p_con->cursor - p_con->original_addr) %
+                        //         SCREEN_WIDTH) %
+                        //            TAB_SIZE ==
+                        //        0)
+                        //        break;
+                        //}
+                        int tabCnt = 4;
+                        for (int i = 0; i < tabCnt; i++) {
+                            if (p_con->cursor > p_con->original_addr) {
+                                if (*(p_vmem - 1) == TAB_COLOR) {
+                                    *(p_vmem - 2) = ' ';
+                                    *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
+                                    p_vmem -= 2;
+                                    p_con->cursor--;
+                                }
+                            }
                         }
                         // redo_undo
                         if (!is_redo_undo) {
@@ -165,10 +176,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                 }
                 break;
             case '\t':  // Lg: 处理TAB, 定位目标位置: 行开始+4*(行位置/4+1)
-                int tabCnt =
-                    TAB_SIZE -
-                    ((p_con->cursor - p_con->original_addr) % SCREEN_WIDTH) %
-                        TAB_SIZE;
+                        // int tabCnt =
+                        //    TAB_SIZE -
+                        //    ((p_con->cursor - p_con->original_addr) %
+                        //    SCREEN_WIDTH) %
+                        //        TAB_SIZE;
+                int tabCnt = 4;
                 for (int i = 0; i < tabCnt; i++) {
                     if (p_con->cursor <
                         p_con->original_addr + p_con->v_mem_limit - 1) {
@@ -239,12 +252,24 @@ PUBLIC void out_char(CONSOLE* p_con, char ch) {
                     }
                 }
                 break;
-                // case '\r':  // Lg: ESC
-                //     mode = 1;
-                //	init_search(p_con);
-                //    return;
             case '\t':
-                return;
+                int tabCnt = 4;
+                for (int i = 0; i < tabCnt; i++) {
+                    if (p_con->cursor <
+                        p_con->original_addr + p_con->v_mem_limit - 1) {
+                        *p_vmem++ = ' ';
+                        *p_vmem++ = TAB_COLOR;
+                        p_con->cursor++;
+                    }
+                }
+                // redo_undo
+                if (!is_redo_undo) {
+                    record.ch = ch;
+                    record.delete_ch = 0;
+                    push_redo_undo_stack(&search_undo_stack, record);
+                    clear_redo_stack(&search_redo_stack);
+                }
+                break;
             case '\r':
                 return;
             case 'Z':
@@ -396,12 +421,13 @@ PUBLIC void KMP(CONSOLE* p_con) {
     char str_text[p_con->search_cursor - p_con->original_addr + 1];
     unsigned int len_text = p_con->search_cursor - p_con->original_addr;
     char* str_pattern[p_con->cursor - p_con->search_cursor + 1];
+    unsigned int col_pattern[p_con->cursor - p_con->search_cursor + 1];
     unsigned int len_pattern = p_con->cursor - p_con->search_cursor;
 
     u8* p_vmem = (u8*)(V_MEM_BASE + p_con->search_cursor * 2);
     for (int i = 0; i < len_pattern; i++) {
-        str_pattern[i] = *p_vmem;
-        p_vmem += 2;
+        str_pattern[i] = *p_vmem++;
+        col_pattern[i] = *p_vmem++;
     }
 
     p_vmem = (u8*)(V_MEM_BASE + p_con->original_addr * 2);
@@ -410,7 +436,10 @@ PUBLIC void KMP(CONSOLE* p_con) {
         // 暴力匹配
         for (int j = 0; j < len_pattern; j++) {
             if (*(p_vmem + 2 * (i + j)) != str_pattern[j] ||
-                *(p_vmem + 2 * (i + j) + 1) != DEFAULT_CHAR_COLOR) {
+                (col_pattern[j] == RED &&
+                 *(p_vmem + 2 * (i + j) + 1) != DEFAULT_CHAR_COLOR) ||
+                (col_pattern[j] == TAB_COLOR &&
+                 *(p_vmem + 2 * (i + j) + 1) != TAB_COLOR)) {
                 flag = 0;
                 break;
             }
@@ -420,7 +449,9 @@ PUBLIC void KMP(CONSOLE* p_con) {
 
         // 染色并指针跳转
         for (int j = 0; j < len_pattern; j++) {
-            *(p_vmem + 2 * (i + j) + 1) = RED;
+            if (col_pattern[j] != TAB_COLOR) {
+                *(p_vmem + 2 * (i + j) + 1) = RED;
+            }
         }
         i += len_pattern - 1;
     }
@@ -470,13 +501,13 @@ PUBLIC void undo(CONSOLE* p_con,
         return;
     INPUT_RECORD record = pop_redo_undo_stack(undo_stack);
     push_redo_undo_stack(redo_stack, record);
-	is_redo_undo = 1;
+    is_redo_undo = 1;
     if (record.ch == '\b') {
         out_char(p_con, record.delete_ch);
     } else {
         out_char(p_con, '\b');
     }
-	is_redo_undo = 0;
+    is_redo_undo = 0;
 }
 
 /*======================================================================*
@@ -493,7 +524,7 @@ PUBLIC void redo(CONSOLE* p_con,
         return;
     INPUT_RECORD record = pop_redo_undo_stack(redo_stack);
     push_redo_undo_stack(undo_stack, record);
-	is_redo_undo = 1;
+    is_redo_undo = 1;
     out_char(p_con, record.ch);
-	is_redo_undo = 0;
+    is_redo_undo = 0;
 }
