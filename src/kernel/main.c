@@ -115,6 +115,7 @@ void TestA()
 			init_alltty();
 			clean_screen();
 			milli_delay(200000);
+			//milli_delay(2000000000);
 		}else {
 			milli_delay(10);
 		}
