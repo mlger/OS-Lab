@@ -25,10 +25,6 @@ PRIVATE void set_cursor(unsigned int position);
 PRIVATE void set_video_start_addr(u32 addr);
 PRIVATE void flush(CONSOLE* p_con);
 
-PUBLIC REDO_UNDO_STACK redo_stack, undo_stack;
-PUBLIC REDO_UNDO_STACK search_redo_stack, search_undo_stack;
-PRIVATE int is_redo_undo = 0;
-
 /*======================================================================*
                            init_screen
  *======================================================================*/
@@ -66,246 +62,49 @@ PUBLIC int is_current_console(CONSOLE* p_con) {
 }
 
 /*======================================================================*
+                           clean
+ *======================================================================*/
+PUBLIC void clean(CONSOLE* p_con) {
+    u8* p_vmem = (u8*)(V_MEM_BASE);
+    for (int i = 0; i < p_con->v_mem_limit; i++) {
+        *p_vmem++ = ' ';
+        *p_vmem++ = DEFAULT_CHAR_COLOR;
+    }
+    p_con->cursor = p_con->current_start_addr = p_con->original_addr;
+    flush(p_con);
+}
+
+/*======================================================================*
                            out_char
  *======================================================================*/
 PUBLIC void out_char(CONSOLE* p_con, char ch) {
     u8* p_vmem = (u8*)(V_MEM_BASE + p_con->cursor * 2);
-    INPUT_RECORD record;
-    if (mode == 0) {  // Lg: mode0 编辑模式
-        switch (ch) {
-            case '\n':  // 行内剩余空格标记颜色
-                if (p_con->cursor <
-                    p_con->original_addr + p_con->v_mem_limit - SCREEN_WIDTH) {
-                    unsigned int goal_cursor =
-                        p_con->original_addr +
-                        SCREEN_WIDTH * ((p_con->cursor - p_con->original_addr) /
-                                            SCREEN_WIDTH +
-                                        1);
-                    // p_con->cursor =
-                    //     p_con->original_addr +
-                    //     SCREEN_WIDTH *
-                    //         ((p_con->cursor - p_con->original_addr) /
-                    //         SCREEN_WIDTH +
-                    //          1);
-                    while (p_con->cursor < goal_cursor) {
-                        *p_vmem++ = ' ';
-                        *p_vmem++ = ENTER_COLOR;
-                        p_con->cursor++;
-                    }
-                }
-                // redo_undo
-                if (!is_redo_undo) {
-                    record.ch = ch;
-                    record.delete_ch = 0;
-                    push_redo_undo_stack(&undo_stack, record);
-                    clear_redo_stack(&redo_stack);
-                }
-                break;
-            case '\b':  // 退格键
-                if (p_con->cursor > p_con->original_addr) {
-                    if (*(p_vmem - 1) == TAB_COLOR) {
-                        // Lg: 处理TAB, 定位目标位置: 行开始+4*(行位置/4)、
-                        // while (p_con->cursor > p_con->original_addr) {
-                        //    if (*(p_vmem - 1) == TAB_COLOR) {
-                        //        *(p_vmem - 2) = ' ';
-                        //        *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
-                        //        p_vmem -= 2;
-                        //        p_con->cursor--;
-                        //    } else
-                        //        break;
-                        //    if (((p_con->cursor - p_con->original_addr) %
-                        //         SCREEN_WIDTH) %
-                        //            TAB_SIZE ==
-                        //        0)
-                        //        break;
-                        //}
-                        int tabCnt = 4;
-                        for (int i = 0; i < tabCnt; i++) {
-                            if (p_con->cursor > p_con->original_addr) {
-                                if (*(p_vmem - 1) == TAB_COLOR) {
-                                    *(p_vmem - 2) = ' ';
-                                    *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
-                                    p_vmem -= 2;
-                                    p_con->cursor--;
-                                }
-                            }
-                        }
-                        // redo_undo
-                        if (!is_redo_undo) {
-                            record.ch = ch;
-                            record.delete_ch = '\t';
-                            push_redo_undo_stack(&undo_stack, record);
-                            clear_redo_stack(&redo_stack);
-                        }
-                    } else if (*(p_vmem - 1) == ENTER_COLOR) {
-                        // Lg: 处理换行，删除所有ENTER_COLOR, 直到上一行开始
-                        unsigned int line_begin_cursor =
-                            p_con->original_addr +
-                            SCREEN_WIDTH *
-                                ((p_con->cursor - p_con->original_addr) /
-                                     SCREEN_WIDTH -
-                                 1);
-                        while (p_con->cursor > line_begin_cursor &&
-                               *(p_vmem - 1) == ENTER_COLOR) {
-                            *(p_vmem - 2) = ' ';
-                            *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
-                            p_vmem -= 2;
-                            p_con->cursor--;
-                        }
-                        // redo_undo
-                        if (!is_redo_undo) {
-                            record.ch = ch;
-                            record.delete_ch = '\n';
-                            push_redo_undo_stack(&undo_stack, record);
-                            clear_redo_stack(&redo_stack);
-                        }
-                    } else {
-                        // 其他情况
-                        p_con->cursor--;
-                        char temp = *(p_vmem - 2);
-                        *(p_vmem - 2) = ' ';
-                        *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
-                        // redo_undo
-                        if (!is_redo_undo) {
-                            record.ch = ch;
-                            record.delete_ch = temp;
-                            push_redo_undo_stack(&undo_stack, record);
-                            clear_redo_stack(&redo_stack);
-                        }
-                    }
-                }
-                break;
-            case '\t':  // Lg: 处理TAB, 定位目标位置: 行开始+4*(行位置/4+1)
-                        // int tabCnt =
-                        //    TAB_SIZE -
-                        //    ((p_con->cursor - p_con->original_addr) %
-                        //    SCREEN_WIDTH) %
-                        //        TAB_SIZE;
-                int tabCnt = 4;
-                for (int i = 0; i < tabCnt; i++) {
-                    if (p_con->cursor <
-                        p_con->original_addr + p_con->v_mem_limit - 1) {
-                        *p_vmem++ = ' ';
-                        *p_vmem++ = TAB_COLOR;
-                        p_con->cursor++;
-                    }
-                }
-                // redo_undo
-                if (!is_redo_undo) {
-                    record.ch = ch;
-                    record.delete_ch = 0;
-                    push_redo_undo_stack(&undo_stack, record);
-                    clear_redo_stack(&redo_stack);
-                }
-                break;
-            case '\r':  // Lg: ESC
-                mode = 1;
-                init_search(p_con);
-                return;
-            case 'Z':
-            case 'z':
-                if (ctrl) {
-                    undo(p_con, &undo_stack, &redo_stack);
-                    return;
-                }
-            case 'Y':
-            case 'y':
-                if (ctrl) {
-                    redo(p_con, &undo_stack, &redo_stack);
-                    return;
-                }
-            default:
-                if (p_con->cursor <
-                    p_con->original_addr + p_con->v_mem_limit - 1) {
-                    *p_vmem++ = ch;
-                    *p_vmem++ = DEFAULT_CHAR_COLOR;
-                    p_con->cursor++;
 
-                    // redo_undo
-                    if (!is_redo_undo) {
-                        record.ch = ch;
-                        record.delete_ch = 0;
-                        push_redo_undo_stack(&undo_stack, record);
-                        clear_redo_stack(&redo_stack);
-                    }
-                }
-                break;
-        }
-    } else if (mode == 1) {  // Lg: mode1 查找输入模式
-        switch (ch) {
-            case '\n':
-                KMP(p_con);
-                mode = 2;
-                break;
-            case '\b':  // 退格键
-                if (p_con->cursor > p_con->search_cursor) {
-                    p_con->cursor--;
-                    char temp = *(p_vmem - 2);
-                    *(p_vmem - 2) = ' ';
-                    *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
-                    // redo_undo
-                    if (!is_redo_undo) {
-                        record.ch = ch;
-                        record.delete_ch = temp;
-                        push_redo_undo_stack(&search_undo_stack, record);
-                        clear_redo_stack(&search_redo_stack);
-                    }
-                }
-                break;
-            case '\t':
-                int tabCnt = 4;
-                for (int i = 0; i < tabCnt; i++) {
-                    if (p_con->cursor <
-                        p_con->original_addr + p_con->v_mem_limit - 1) {
-                        *p_vmem++ = ' ';
-                        *p_vmem++ = TAB_COLOR;
-                        p_con->cursor++;
-                    }
-                }
-                // redo_undo
-                if (!is_redo_undo) {
-                    record.ch = ch;
-                    record.delete_ch = 0;
-                    push_redo_undo_stack(&search_undo_stack, record);
-                    clear_redo_stack(&search_redo_stack);
-                }
-                break;
-            case '\r':
-                return;
-            case 'Z':
-            case 'z':
-                if (ctrl) {
-                    undo(p_con, &search_undo_stack, &search_redo_stack);
-                    return;
-                }
-            case 'Y':
-            case 'y':
-                if (ctrl) {
-                    redo(p_con, &search_undo_stack, &search_redo_stack);
-                    return;
-                }
-            default:
-                if (p_con->cursor <
-                    p_con->original_addr + p_con->v_mem_limit - 1) {
-                    *p_vmem++ = ch;
-                    *p_vmem++ = RED;
-                    p_con->cursor++;
-                    // redo_undo
-                    if (!is_redo_undo) {
-                        record.ch = ch;
-                        record.delete_ch = 0;
-                        push_redo_undo_stack(&search_undo_stack, record);
-                        clear_redo_stack(&search_redo_stack);
-                    }
-                }
-                break;
-        }
-    } else if (mode == 2) {  // Lg: mode2 查找显示模式
-        if (ch == '\r') {
-            exit_search(p_con);
-            mode = 0;
-        }
-    } else {
+    switch (ch) {
+        case '\n':
+            if (p_con->cursor <
+                p_con->original_addr + p_con->v_mem_limit - SCREEN_WIDTH) {
+                p_con->cursor =
+                    p_con->original_addr +
+                    SCREEN_WIDTH *
+                        ((p_con->cursor - p_con->original_addr) / SCREEN_WIDTH +
+                         1);
+            }
+            break;
+        case '\b':
+            if (p_con->cursor > p_con->original_addr) {
+                p_con->cursor--;
+                *(p_vmem - 2) = ' ';
+                *(p_vmem - 1) = DEFAULT_CHAR_COLOR;
+            }
+            break;
+        default:
+            if (p_con->cursor < p_con->original_addr + p_con->v_mem_limit - 1) {
+                *p_vmem++ = ch;
+                *p_vmem++ = DEFAULT_CHAR_COLOR;
+                p_con->cursor++;
+            }
+            break;
     }
 
     while (p_con->cursor >= p_con->current_start_addr + SCREEN_SIZE) {
@@ -387,150 +186,4 @@ PUBLIC void scroll_screen(CONSOLE* p_con, int direction) {
 
     set_video_start_addr(p_con->current_start_addr);
     set_cursor(p_con->cursor);
-}
-
-/*======================================================================*
-                           Search
-                init_searh exit_search KMP
-*======================================================================*/
-PUBLIC void init_search(CONSOLE* p_con) {
-    p_con->search_cursor = p_con->cursor;
-}
-
-PUBLIC void exit_search(CONSOLE* p_con) {
-    u8* p_vmem = (u8*)(V_MEM_BASE + p_con->original_addr * 2);
-    for (int i = 0; i < p_con->search_cursor; i++) {
-        if (*(p_vmem + 1) == RED) {
-            *(p_vmem + 1) = DEFAULT_CHAR_COLOR;
-        }
-        p_vmem += 2;
-    }
-    for (int i = p_con->search_cursor; i < p_con->cursor; i++) {
-        *p_vmem++ = ' ';
-        *p_vmem++ = DEFAULT_CHAR_COLOR;
-    }
-    p_con->cursor = p_con->search_cursor;
-    p_con->search_cursor = 0;
-    clear_redo_stack(&search_undo_stack);
-    clear_redo_stack(&search_redo_stack);
-}
-
-PUBLIC void KMP(CONSOLE* p_con) {
-    if (p_con->cursor == p_con->search_cursor)
-        return;  // 没有输入
-    char str_text[p_con->search_cursor - p_con->original_addr + 1];
-    unsigned int len_text = p_con->search_cursor - p_con->original_addr;
-    char* str_pattern[p_con->cursor - p_con->search_cursor + 1];
-    unsigned int col_pattern[p_con->cursor - p_con->search_cursor + 1];
-    unsigned int len_pattern = p_con->cursor - p_con->search_cursor;
-
-    u8* p_vmem = (u8*)(V_MEM_BASE + p_con->search_cursor * 2);
-    for (int i = 0; i < len_pattern; i++) {
-        str_pattern[i] = *p_vmem++;
-        col_pattern[i] = *p_vmem++;
-    }
-
-    p_vmem = (u8*)(V_MEM_BASE + p_con->original_addr * 2);
-    for (int i = 0; i + len_pattern - 1 < len_text; i++) {
-        int flag = 1;
-        // 暴力匹配
-        for (int j = 0; j < len_pattern; j++) {
-            if (*(p_vmem + 2 * (i + j)) != str_pattern[j] ||
-                (col_pattern[j] == RED &&
-                 *(p_vmem + 2 * (i + j) + 1) != DEFAULT_CHAR_COLOR) ||
-                (col_pattern[j] == TAB_COLOR &&
-                 *(p_vmem + 2 * (i + j) + 1) != TAB_COLOR)) {
-                flag = 0;
-                break;
-            }
-        }
-        if (!flag)
-            continue;
-
-        // 染色并指针跳转
-        for (int j = 0; j < len_pattern; j++) {
-            if (col_pattern[j] != TAB_COLOR) {
-                *(p_vmem + 2 * (i + j) + 1) = RED;
-            }
-        }
-        i += len_pattern - 1;
-    }
-}
-
-/*======================================================================*
-                           redo_undo_methods
- *======================================================================*/
-PUBLIC int is_redo_undo_stack_empty(REDO_UNDO_STACK* stack) {
-    return stack->index == 0;
-}
-
-PUBLIC void push_redo_undo_stack(REDO_UNDO_STACK* stack, INPUT_RECORD record) {
-    if (stack->index == SCREEN_SIZE) {
-        for (int i = 0; i < SCREEN_SIZE - 1; i++) {
-            stack->input_record[i] = stack->input_record[i + 1];
-        }
-        stack->index = SCREEN_SIZE - 1;
-    }
-    stack->input_record[stack->index++] = record;
-}
-
-PUBLIC INPUT_RECORD pop_redo_undo_stack(REDO_UNDO_STACK* stack) {
-    if (stack->index == 0) {
-        INPUT_RECORD record;
-        record.ch = 0;
-        record.delete_ch = 0;
-        return record;
-    }
-    return stack->input_record[--stack->index];
-}
-
-PUBLIC void clear_redo_stack(REDO_UNDO_STACK* stack) {
-    stack->index = 0;
-}
-PUBLIC void clear_all_stack() {
-	clear_redo_stack(&redo_stack);
-	clear_redo_stack(&undo_stack);
-	clear_redo_stack(&search_redo_stack);
-	clear_redo_stack(&search_undo_stack);
-}
-/*======================================================================*
-                           undo
- *----------------------------------------------------------------------*
- 撤销
- *----------------------------------------------------------------------*
- 对撤销栈顶的操作压入重做栈，并进行逆向
- *======================================================================*/
-PUBLIC void undo(CONSOLE* p_con,
-                 REDO_UNDO_STACK* undo_stack,
-                 REDO_UNDO_STACK* redo_stack) {
-    if (is_redo_undo_stack_empty(undo_stack))
-        return;
-    INPUT_RECORD record = pop_redo_undo_stack(undo_stack);
-    push_redo_undo_stack(redo_stack, record);
-    is_redo_undo = 1;
-    if (record.ch == '\b') {
-        out_char(p_con, record.delete_ch);
-    } else {
-        out_char(p_con, '\b');
-    }
-    is_redo_undo = 0;
-}
-
-/*======================================================================*
-                           redo
- *----------------------------------------------------------------------*
- 重做
- *----------------------------------------------------------------------*
- 对重做栈顶的操作压入撤销栈，并进行正向
- *======================================================================*/
-PUBLIC void redo(CONSOLE* p_con,
-                 REDO_UNDO_STACK* undo_stack,
-                 REDO_UNDO_STACK* redo_stack) {
-    if (is_redo_undo_stack_empty(redo_stack))
-        return;
-    INPUT_RECORD record = pop_redo_undo_stack(redo_stack);
-    push_redo_undo_stack(undo_stack, record);
-    is_redo_undo = 1;
-    out_char(p_con, record.ch);
-    is_redo_undo = 0;
 }

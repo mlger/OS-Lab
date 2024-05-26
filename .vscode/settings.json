@@ -2,5 +2,6 @@
 	"files.associations": {
 		"string.h": "c",
 		"type.h": "c"
-	}
+	},
+	"C_Cpp.clang_format_sortIncludes": false
 }

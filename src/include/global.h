@@ -12,6 +12,8 @@
 #endif
 
 EXTERN	int		ticks;
+EXTERN  int 	readers;
+EXTERN	int		writers;
 
 EXTERN	int		disp_pos;
 EXTERN	u8		gdt_ptr[6];	// 0~15:Limit  16~47:Base
@@ -34,5 +36,9 @@ extern	irq_handler	irq_table[];
 extern	TTY		tty_table[];
 extern  CONSOLE         console_table[];
 
-EXTERN	int		mode;	
-EXTERN	int		ctrl;	
+extern	SEMAPHORE	read_write_mutex;
+extern	SEMAPHORE	writer_cnt_mutex;
+extern	SEMAPHORE	reader_cnt_mutex;
+extern	SEMAPHORE	queue;
+extern	SEMAPHORE	reader_mutex;
+extern	SEMAPHORE	writer_mutex;

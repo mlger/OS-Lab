@@ -36,21 +36,33 @@ typedef struct s_proc {
 
         int ticks;                 /* remained ticks */
         int priority;
+		int sleeping_ticks;
+		int isblocked;
+		int issleep;
 
 	u32 pid;                   /* process id passed in from MM */
 	char p_name[16];           /* name of the process */
+
+	int nr_tty;
 }PROCESS;
 
 typedef struct s_task {
 	task_f	initial_eip;
-	int	stacksize;
+	int		stacksize;
 	char	name[32];
 }TASK;
 
 
 /* Number of tasks & procs */
-#define NR_TASKS	2
-#define NR_PROCS	2
+#define NR_TASKS	1
+#define NR_PROCS	6
+
+typedef struct s_sema{
+	int value;
+	int head;
+	int tail;
+	PROCESS* process_list[NR_PROCS];	//进程队列
+}SEMAPHORE;
 
 /* stacks of tasks */
 #define STACK_SIZE_TTY		0x8000

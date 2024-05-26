@@ -15,133 +15,290 @@
 #include "global.h"
 #include "proto.h"
 
+int strategy;
+int sleep_t;
+PUBLIC void print_status(PROCESS* p);
+int cost_time_R1, cost_time_R2, cost_time_R3, cost_time_W1, cost_time_W2;
+
+/*======================================================================*
+                            init_tasks
+ *======================================================================*/
+PRIVATE void init_tasks() {
+    init_screen(tty_table);
+    clean(console_table);
+
+    int temp_prior[7] = {1, 1, 1, 1, 1, 1, 1};
+    for (int i = 0; i < 7; ++i) {
+        proc_table[i].ticks = temp_prior[i];
+        proc_table[i].priority = temp_prior[i];
+    }
+
+    // 初始化变量
+    k_reenter = 0;  // 重入中断数
+    ticks = 0;      // 时钟中断数
+    readers = 0;    // 读者数量
+    writers = 0;    // 写者数量
+
+    cost_time_R1 = 2;  // R1 操作耗时
+    cost_time_R2 = 3;  // R2 操作耗时
+    cost_time_R3 = 3;  // R3 操作耗时
+    cost_time_W1 = 3;  // W1 操作耗时
+    cost_time_W2 = 4;  // W2 操作耗时
+
+    strategy = 0;  // 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
+    sleep_t = 0;  // 执行完，睡眠时间
+
+    p_proc_ready = proc_table;
+}
 
 /*======================================================================*
                             kernel_main
  *======================================================================*/
-PUBLIC int kernel_main()
-{
-	disp_str("-----\"kernel_main\" begins-----\n");
+PUBLIC int kernel_main() {
+    disp_str("-----\"kernel_main\" begins-----\n");
 
-	TASK*		p_task		= task_table;
-	PROCESS*	p_proc		= proc_table;
-	char*		p_task_stack	= task_stack + STACK_SIZE_TOTAL;
-	u16		selector_ldt	= SELECTOR_LDT_FIRST;
-	int i;
-        u8              privilege;
-        u8              rpl;
-        int             eflags;
-	for (i = 0; i < NR_TASKS+NR_PROCS; i++) {
-                if (i < NR_TASKS) {     /* 任务 */
-                        p_task    = task_table + i;
-                        privilege = PRIVILEGE_TASK;
-                        rpl       = RPL_TASK;
-                        eflags    = 0x1202; /* IF=1, IOPL=1, bit 2 is always 1 */
-                }
-                else {                  /* 用户进程 */
-                        p_task    = user_proc_table + (i - NR_TASKS);
-                        privilege = PRIVILEGE_USER;
-                        rpl       = RPL_USER;
-                        eflags    = 0x202; /* IF=1, bit 2 is always 1 */
-                }
+    TASK* p_task = task_table;
+    PROCESS* p_proc = proc_table;
+    char* p_task_stack = task_stack + STACK_SIZE_TOTAL;
+    u16 selector_ldt = SELECTOR_LDT_FIRST;
+    int i;
+    u8 privilege;
+    u8 rpl;
+    int eflags;
+    for (i = 0; i < NR_TASKS + NR_PROCS; i++) {
+        if (i < NR_TASKS) { /* 任务 */
+            p_task = task_table + i;
+            privilege = PRIVILEGE_TASK;
+            rpl = RPL_TASK;
+            eflags = 0x1202; /* IF=1, IOPL=1, bit 2 is always 1 */
+        } else {             /* 用户进程 */
+            p_task = user_proc_table + (i - NR_TASKS);
+            privilege = PRIVILEGE_USER;
+            rpl = RPL_USER;
+            eflags = 0x202; /* IF=1, bit 2 is always 1 */
+        }
 
-		strcpy(p_proc->p_name, p_task->name);	// name of the process
-		p_proc->pid = i;			// pid
+        strcpy(p_proc->p_name, p_task->name);  // name of the process
+        p_proc->pid = i;                       // pid
 
-		p_proc->ldt_sel = selector_ldt;
+        p_proc->ldt_sel = selector_ldt;
 
-		memcpy(&p_proc->ldts[0], &gdt[SELECTOR_KERNEL_CS >> 3],
-		       sizeof(DESCRIPTOR));
-		p_proc->ldts[0].attr1 = DA_C | privilege << 5;
-		memcpy(&p_proc->ldts[1], &gdt[SELECTOR_KERNEL_DS >> 3],
-		       sizeof(DESCRIPTOR));
-		p_proc->ldts[1].attr1 = DA_DRW | privilege << 5;
-		p_proc->regs.cs	= (0 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.ds	= (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.es	= (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.fs	= (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.ss	= (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.gs	= (SELECTOR_KERNEL_GS & SA_RPL_MASK) | rpl;
+        memcpy(&p_proc->ldts[0], &gdt[SELECTOR_KERNEL_CS >> 3],
+               sizeof(DESCRIPTOR));
+        p_proc->ldts[0].attr1 = DA_C | privilege << 5;
+        memcpy(&p_proc->ldts[1], &gdt[SELECTOR_KERNEL_DS >> 3],
+               sizeof(DESCRIPTOR));
+        p_proc->ldts[1].attr1 = DA_DRW | privilege << 5;
+        p_proc->regs.cs = (0 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+        p_proc->regs.ds = (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+        p_proc->regs.es = (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+        p_proc->regs.fs = (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+        p_proc->regs.ss = (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
+        p_proc->regs.gs = (SELECTOR_KERNEL_GS & SA_RPL_MASK) | rpl;
 
-		p_proc->regs.eip = (u32)p_task->initial_eip;
-		p_proc->regs.esp = (u32)p_task_stack;
-		p_proc->regs.eflags = eflags;
+        p_proc->regs.eip = (u32)p_task->initial_eip;
+        p_proc->regs.esp = (u32)p_task_stack;
+        p_proc->regs.eflags = eflags;
 
-		p_task_stack -= p_task->stacksize;
-		p_proc++;
-		p_task++;
-		selector_ldt += 1 << 3;
-	}
+        p_task_stack -= p_task->stacksize;
+        p_proc++;
+        p_task++;
+        selector_ldt += 1 << 3;
+    }
 
-	proc_table[0].ticks = proc_table[0].priority = 15;
-	proc_table[1].ticks = proc_table[1].priority =  5;
-	proc_table[2].ticks = proc_table[2].priority =  3;
+    proc_table[0].ticks = proc_table[0].priority = 15;
+    proc_table[1].ticks = proc_table[1].priority = 5;
+    proc_table[2].ticks = proc_table[2].priority = 3;
 
-	k_reenter = 0;
-	ticks = 0;
+    k_reenter = 0;
+    ticks = 0;
 
-	p_proc_ready	= proc_table;
+    init_tasks();
+    init_clock();
+    init_keyboard();
 
-	init_clock();
-        init_keyboard();
+    restart();
 
-	restart();
+    while (1) {
+    }
+}
 
-	while(1){}
+// 函数声明
+PRIVATE void read_process(int silces);
+PRIVATE void write_process(int silces);
+void read_reader_first(int slices);
+void write_reader_first(int slices);
+void read_writer_first(int slices);
+void write_writer_first(int slices);
+void read_fair(int slices);
+void write_fair(int slices);
+
+read_f read_funcs[3] = {read_reader_first, read_writer_first, read_fair};
+write_f write_funcs[3] = {write_reader_first, write_writer_first, write_fair};
+
+/*======================================================================*
+                               读者优先
+ *======================================================================*/
+void read_reader_first(int slices) {
+    P(&reader_mutex);      // 读者上限
+    P(&reader_cnt_mutex);  // 调取读者数量
+    if (readers == 0) {
+        P(&read_write_mutex);  // 读写互斥
+    }
+    readers++;
+    V(&reader_cnt_mutex);  // 释放读者数量
+
+    // 读操作
+    read_process(slices);
+
+    P(&reader_cnt_mutex);  // 调取读者数量
+    readers--;
+    if (readers == 0) {
+        V(&read_write_mutex);  // 读写互斥解锁
+    }
+    V(&reader_cnt_mutex);  // 释放读者数量
+    V(&reader_mutex);      // 读者上限
+}
+
+void write_reader_first(int slices) {
+    P(&read_write_mutex);  // 读写互斥
+
+    // 写操作
+    write_process(slices);
+
+    V(&read_write_mutex);  // 读写互斥解锁
 }
 
 /*======================================================================*
-                            clean_screen
+                               写者优先
  *======================================================================*/
-PUBLIC void clean_screen(){
-	disp_pos = 0;
-	for (int i = 0; i < SCREEN_SIZE; i++){
-		disp_str(" ");
-	}
-	disp_pos = 0;
-	// 清空redo_undo栈
-	clear_all_stack();
+void read_writer_first(int slices) {
+    P(&reader_mutex);  // 读者上限
+    P(&queue);
+    P(&reader_cnt_mutex);  // 调取读者数量
+    if (readers == 0) {
+        P(&read_write_mutex);  // 读写互斥
+    }
+    readers++;
+    V(&reader_cnt_mutex);  // 释放读者数量
+    V(&queue);
+
+    // 读操作
+    read_process(slices);
+
+    P(&reader_cnt_mutex);  // 调取读者数量
+    readers--;
+    if (readers == 0) {
+        V(&read_write_mutex);  // 读写互斥解锁
+    }
+    V(&reader_cnt_mutex);  // 释放读者数量
+    V(&reader_mutex);      // 读者上限
+}
+
+void write_writer_first(int slices) {
+    P(&writer_cnt_mutex);  // 调取写者数量
+    if (writers == 0) {
+        P(&queue);
+    }
+    writers++;
+    V(&writer_cnt_mutex);  // 释放写者数量
+
+    // 写操作
+    P(&read_write_mutex);  // 读写互斥
+    write_process(slices);
+    V(&read_write_mutex);  // 读写互斥解锁
+
+    P(&writer_cnt_mutex);  // 调取写者数量
+    writers--;
+    if (writers == 0) {
+        V(&queue);
+    }
+    V(&writer_cnt_mutex);  // 释放写者数量
 }
 
 /*======================================================================*
-                               TestA
+                               读写公平
  *======================================================================*/
-void TestA()
-{
-	int i = 0;
-	while (1) {
-		//disp_str("QwQ ");
-		if (mode == 0) {
-			init_alltty();
-			clean_screen();
-			milli_delay(200000);
-			milli_delay(2000000000);
-		}else {
-			milli_delay(10);
-		}
-	}
+void read_fair(int slices) {
+    P(&queue);
+    P(&reader_mutex);      // 读者上限
+    P(&reader_cnt_mutex);  // 调取读者数量
+    if (readers == 0) {
+        P(&read_write_mutex);  // 读写互斥
+    }
+    readers++;
+    V(&reader_cnt_mutex);  // 释放读者数量
+    V(&queue);
+
+    // 读操作
+    read_process(slices);
+
+    P(&reader_cnt_mutex);  // 调取读者数量
+    readers--;
+    if (readers == 0) {
+        V(&read_write_mutex);  // 读写互斥解锁
+    }
+    V(&reader_cnt_mutex);  // 释放读者数量
+    V(&reader_mutex);      // 读者上限
+}
+
+void write_fair(int slices) {
+    P(&queue);
+    P(&read_write_mutex);  // 读写互斥
+
+    // 写操作
+    write_process(slices);
+
+    V(&read_write_mutex);  // 读写互斥解锁
+    V(&queue);
 }
 
 /*======================================================================*
-                               TestB
+                               进程
  *======================================================================*/
-void TestB()
-{
-	int i = 0x1000;
-	while(1){
-		/* disp_str("B."); */
-		milli_delay(10);
-	}
+void Reporter() {}
+
+void R1() {
+    while (1) {
+        read_funcs[strategy](cost_time_R1);
+        sleep_ms(sleep_t * TIME_SLICE);
+    }
+}
+
+void R2() {
+    while (1) {
+        read_funcs[strategy](cost_time_R2);
+        sleep_ms(sleep_t * TIME_SLICE);
+    }
+}
+
+void R3() {
+    while (1) {
+        read_funcs[strategy](cost_time_R3);
+        sleep_ms(sleep_t * TIME_SLICE);
+    }
+}
+
+void W1() {
+    while (1) {
+        write_funcs[strategy](cost_time_W1);
+        sleep_ms(sleep_t * TIME_SLICE);
+    }
+}
+
+void W2() {
+    while (1) {
+        write_funcs[strategy](cost_time_W2);
+        sleep_ms(sleep_t * TIME_SLICE);
+    }
 }
 
 /*======================================================================*
-                               TestB
+                               读写操作
  *======================================================================*/
-void TestC()
-{
-	int i = 0x2000;
-	while(1){
-		/* disp_str("C."); */
-		milli_delay(10);
-	}
+PRIVATE void read_process(int silces) {
+    sleep_ms(silces * TIME_SLICE);  // 读耗时 silces 个时间片
+}
+PRIVATE void write_process(int silces) {
+    sleep_ms(silces * TIME_SLICE);  // 写耗时 silces 个时间片
 }

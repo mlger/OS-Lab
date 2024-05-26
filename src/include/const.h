@@ -29,8 +29,6 @@
 #define BLUE    0x1     /* 0001 */
 #define FLASH   0x80    /* 1000 0000 */
 #define BRIGHT  0x08    /* 0000 1000 */
-#define TAB_COLOR 0x1
-#define ENTER_COLOR 0x2
 #define MAKE_COLOR(x,y) (x | y) /* MAKE_COLOR(Background,Foreground) */
 
 /* GDT 和 IDT 中描述符的个数 */
@@ -99,6 +97,10 @@
 #define	AT_WINI_IRQ	14	/* at winchester */
 
 /* system call */
-#define NR_SYS_CALL     1
+#define NR_SYS_CALL     5
+
+#define MAX_READERS 3	//最大读者数
+#define MAX_WRITERS 1	//最大写者数
+#define TIME_SLICE 	100	//时间片
 
 #endif /* _ORANGES_CONST_H_ */

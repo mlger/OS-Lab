@@ -20,5 +20,8 @@ typedef	void	(*irq_handler)	(int irq);
 
 typedef void*	system_call;
 
+typedef	void    (*read_f)	(int);
+typedef	void    (*write_f)	(int);
+
 
 #endif /* _ORANGES_TYPE_H_ */

@@ -24,11 +24,22 @@ PUBLIC void clock_handler(int irq)
 	ticks++;
 	p_proc_ready->ticks--;
 
+	// Lg: 处理睡眠
+	for (PROCESS* p = proc_table; p < proc_table + NR_TASKS + NR_PROCS; p++) {
+		if (p->issleep) {
+			p->sleeping_ticks--;
+			if (p->sleeping_ticks <= 0) {	// Lg: 睡眠结束
+				p->issleep = 0;
+			}
+		}
+	}
+
+
 	if (k_reenter != 0) {
 		return;
 	}
 
-	if (p_proc_ready->ticks > 0) {
+	if (p_proc_ready->ticks > 0) {	// Lg: 时间片还没用完
 		return;
 	}
 

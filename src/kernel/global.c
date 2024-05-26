@@ -16,23 +16,36 @@
 #include "global.h"
 #include "proto.h"
 
+PUBLIC PROCESS proc_table[NR_TASKS + NR_PROCS];
 
-PUBLIC	PROCESS	proc_table[NR_TASKS + NR_PROCS];
+PUBLIC TASK task_table[NR_TASKS] = {{task_tty, STACK_SIZE_TTY, "tty"}};
 
-PUBLIC	TASK	task_table[NR_TASKS] = {
-	{task_tty, STACK_SIZE_TTY, "tty"},
-	{TestA, STACK_SIZE_TESTA, "TestA"}};
+PUBLIC TASK user_proc_table[NR_PROCS] = {{Reporter, STACK_SIZE_TESTA, "Reporter"},
+                                         {R1, STACK_SIZE_TESTB, "R1"},
+                                         {R2, STACK_SIZE_TESTC, "R2"},
+										 {R3, STACK_SIZE_TESTC, "R3"},
+										 {W1, STACK_SIZE_TESTC, "W1"},
+										 {W2, STACK_SIZE_TESTC, "W2"}};
 
-PUBLIC  TASK    user_proc_table[NR_PROCS] = {
-	{TestB, STACK_SIZE_TESTB, "TestB"},
-	{TestC, STACK_SIZE_TESTC, "TestC"}};
+PUBLIC char task_stack[STACK_SIZE_TOTAL];
 
-PUBLIC	char		task_stack[STACK_SIZE_TOTAL];
+PUBLIC TTY tty_table[NR_CONSOLES];
+PUBLIC CONSOLE console_table[NR_CONSOLES];
 
-PUBLIC	TTY		tty_table[NR_CONSOLES];
-PUBLIC	CONSOLE		console_table[NR_CONSOLES];
+PUBLIC irq_handler irq_table[NR_IRQ];
 
-PUBLIC	irq_handler	irq_table[NR_IRQ];
+// Lg: 添加系统调用
+PUBLIC system_call sys_call_table[NR_SYS_CALL] = {
+    sys_get_ticks,
+	sys_sleep_ms,
+	sys_print_str,
+	p_process,
+	v_process
+};
 
-PUBLIC	system_call	sys_call_table[NR_SYS_CALL] = {sys_get_ticks};
-
+// Lg: 添加信号量
+PUBLIC  SEMAPHORE read_write_mutex = {1, 0, 0};	// 读写互斥信号量
+PUBLIC  SEMAPHORE writer_cnt_mutex = {1, 0, 0};	// 访问写者数量
+PUBLIC  SEMAPHORE reader_cnt_mutex = {1, 0, 0};	// 访问读者数量
+PUBLIC  SEMAPHORE queue = {1, 0, 0};	// 队列信号量, 用于控制读写顺序
+PUBLIC  SEMAPHORE reader_mutex = {MAX_READERS, 0, 0};	// 读者数量互斥信号量
