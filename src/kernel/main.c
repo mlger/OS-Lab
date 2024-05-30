@@ -15,10 +15,9 @@
 #include "global.h"
 #include "proto.h"
 
-int sleep_t;
+int n;
 
-PRIVATE void init_semaphore(SEMAPHORE* sem, int value);
-void print_semaphore_info(SEMAPHORE* sem);
+PRIVATE void add_gen_cost(PROCESS* p);
 /*======================================================================*
                             init_tasks
  *======================================================================*/
@@ -29,10 +28,11 @@ PRIVATE void init_tasks() {
     // 初始化变量
     k_reenter = 0;  // 重入中断数
     ticks = 0;      // 时钟中断数
-
-    sleep_t = 1;  // 执行完，睡眠时间
-
+    n = 2;          // 物品上限
     p_proc_ready = proc_table;
+
+    // 初始化信号量
+    sem_empty.value = n;
 }
 
 /*======================================================================*
@@ -109,25 +109,53 @@ PRIVATE void writesp(int num, int col);
 PRIVATE void writeln(int num, int col);
 
 /*======================================================================*
+                               调度策略
+ *======================================================================*/
+void produce_1() {
+    P(&sem_empty);
+    add_gen_cost(p_proc_ready);
+    V(&sem_full1);
+}
+
+void produce_2() {
+    P(&sem_empty);
+    add_gen_cost(p_proc_ready);
+    V(&sem_full2);
+}
+
+void consume_1() {
+    P(&sem_full1);
+    add_gen_cost(p_proc_ready);
+    V(&sem_empty);
+}
+
+void consume_2() {
+    P(&sem_full2);
+    add_gen_cost(p_proc_ready);
+    V(&sem_empty);
+}
+
+void consume_3() {
+    P(&sem_full2);
+    add_gen_cost(p_proc_ready);
+    V(&sem_empty);
+}
+
+/*======================================================================*
                                进程
  *======================================================================*/
 void Reporter() {
+	printf("value of n: %x\n", sem_empty.value);
+	sleep_ms(TIME_SLICE);
     int cnt = 0;
     while (1) {
         if (cnt < 20) {
+			// 打印时间
             writesp(cnt, DEFAULT_CHAR_COLOR);
-            if (cnt <= 0x0F)
-                print_str(" ", DEFAULT_CHAR_COLOR);
 
             for (PROCESS* p = proc_table + NR_TASKS + 1;
                  p < proc_table + NR_TASKS + NR_PROCS; p++) {
-                if (p->state == STBLOCK) {
-                    print_str(" X ", RED);
-                } else if (p->state == STSLEEP) {
-                    print_str(" Z ", BLUE);
-                } else {
-                    print_str(" O ", GREEN);
-                }
+                writesp(p->gen_cost, GREEN);
             }
             print_str("\n", DEFAULT_CHAR_COLOR);
         }
@@ -138,39 +166,40 @@ void Reporter() {
 
 void P1() {
     while (1) {
-        sleep_ms(sleep_t * TIME_SLICE);
+        produce_1();
     }
 }
 
 void P2() {
     while (1) {
-        sleep_ms(sleep_t * TIME_SLICE);
+        produce_2();
     }
 }
 
 void C1() {
     while (1) {
-        sleep_ms(sleep_t * TIME_SLICE);
+        consume_1();
     }
 }
 
 void C2() {
     while (1) {
-        sleep_ms(sleep_t * TIME_SLICE);
+        consume_2();
     }
 }
 
 void C3() {
     while (1) {
-        sleep_ms(sleep_t * TIME_SLICE);
+        consume_3();
     }
 }
 
 /*======================================================================*
                                生产消耗
  *======================================================================*/
-PRIVATE void gen_cost(PROCESS* p) {
+PRIVATE void add_gen_cost(PROCESS* p) {
     ++p->gen_cost;
+    work(TIME_SLICE);
 }
 
 /*======================================================================*
@@ -178,12 +207,17 @@ PRIVATE void gen_cost(PROCESS* p) {
  *======================================================================*/
 PRIVATE void write(int num, int col) {
     printf_col(col, "%x", num);
+    if (num <= 0x0F) {
+        printf(" ");
+    }
 }
 
 PRIVATE void writesp(int num, int col) {
-    printf_col(col, "%x ", num);
+    write(num, col);
+    printf(" ");
 }
 
 PRIVATE void writeln(int num, int col) {
-    printf_col(col, "%x\n", num);
+    write(num, col);
+    printf("\n");
 }

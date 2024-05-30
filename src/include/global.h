@@ -34,4 +34,7 @@ extern	irq_handler	irq_table[];
 extern	TTY		tty_table[];
 extern  CONSOLE         console_table[];
 
-extern	SEMAPHORE	queue;
+extern	SEMAPHORE	sem_empty;
+extern	SEMAPHORE	sem_full1;
+extern	SEMAPHORE	sem_full2;
+//extern	SEMAPHORE	sem_mutex;

@@ -45,4 +45,9 @@ PUBLIC system_call sys_call_table[NR_SYS_CALL] = {
 };
 
 // Lg: 添加信号量
-PUBLIC SEMAPHORE empty = {1, 0, 0}; // 空缓冲区
+PUBLIC SEMAPHORE sem_empty = {0, 0, 0}; // 空缓冲区
+PUBLIC SEMAPHORE sem_full1 = {0, 0, 0};  // 满缓冲区1
+PUBLIC SEMAPHORE sem_full2 = {0, 0, 0};  // 满缓冲区2
+//PUBLIC SEMAPHORE sem_mutex = {1, 0, 0};  // 互斥信号量
+
+
