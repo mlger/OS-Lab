@@ -53,6 +53,7 @@ typedef struct s_proc {
 
     int wake_tick;
 	int state;	// 0 running 1 blocking 2 sleeping
+	int gen_cost; // 生成消耗
 
     u32 pid;         /* process id passed in from MM */
     char p_name[16]; /* name of the process */
@@ -79,12 +80,12 @@ typedef struct s_sema {
 /* stacks of tasks */
 #define STACK_SIZE_TTY 0x8000
 #define STACK_SIZE_REPORTER 0x8000
-#define STACK_SIZE_R1 0x8000
-#define STACK_SIZE_R2 0x8000
-#define STACK_SIZE_R3 0x8000
-#define STACK_SIZE_W1 0x8000
-#define STACK_SIZE_W2 0x8000
+#define STACK_SIZE_P1 0x8000
+#define STACK_SIZE_P2 0x8000
+#define STACK_SIZE_C1 0x8000
+#define STACK_SIZE_C2 0x8000
+#define STACK_SIZE_C3 0x8000
 
 #define STACK_SIZE_TOTAL                                                    \
-    (STACK_SIZE_TTY + STACK_SIZE_REPORTER + STACK_SIZE_R1 + STACK_SIZE_R2 + \
-     STACK_SIZE_R3 + STACK_SIZE_W1 + STACK_SIZE_W2)
+    (STACK_SIZE_TTY + STACK_SIZE_REPORTER + STACK_SIZE_P1 + STACK_SIZE_P2 + \
+     STACK_SIZE_C1 + STACK_SIZE_C2 + STACK_SIZE_C3)

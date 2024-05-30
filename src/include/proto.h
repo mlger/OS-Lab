@@ -25,11 +25,11 @@ void restart();
 
 /* main.c */
 void Reporter();
-void R1();
-void R2();
-void R3();
-void W1();
-void W2();
+void P1();
+void P2();
+void C1();
+void C2();
+void C3();
 
 /* i8259.c */
 PUBLIC void put_irq_handler(int irq, irq_handler handler);
