@@ -47,8 +47,18 @@ PUBLIC void task_tty();
 PUBLIC void in_process(TTY* p_tty, u32 key);
 
 /* console.c */
+PUBLIC void set_color(CONSOLE* p_con, int color);
 PUBLIC void out_char(CONSOLE* p_con, char ch);
 PUBLIC void scroll_screen(CONSOLE* p_con, int direction);
+PUBLIC void init_screen(TTY* p_tty);
+
+/* printf.c */
+PUBLIC  int     printf(const char *fmt, ...);
+PUBLIC  int     printf_col(int col, const char *fmt, ...);
+
+/* vsprintf.c */
+PUBLIC  int     vsprintf(char *buf, const char *fmt, va_list args);
+
 
 /* 以下是系统调用相关 */
 
@@ -56,16 +66,18 @@ PUBLIC void scroll_screen(CONSOLE* p_con, int direction);
 /* proc.c */
 PUBLIC  int     sys_get_ticks();        /* sys_call */
 PUBLIC	void 	sys_sleep_ms(int milli_sec);
-PUBLIC	void 	sys_print_str(char* buf, int len);
+PUBLIC	void 	sys_print_str(char* buf, int col);
 PUBLIC	void 	p_process(SEMAPHORE* sem);
 PUBLIC	void 	v_process(SEMAPHORE* sem);
+PUBLIC	void 	sys_work(int milli_sec);
 
 // Lg: 用户级
 /* syscall.asm */
 PUBLIC  void    sys_call();             /* int_handler */
 PUBLIC  int     get_ticks();
 PUBLIC	void 	sleep_ms(int milli_sec);
-PUBLIC	void 	print_str(char* buf, int color);
+PUBLIC	void 	print_str(char* buf, int col);
 PUBLIC	void 	P(SEMAPHORE* sem);
 PUBLIC	void 	V(SEMAPHORE* sem);
+PUBLIC	void 	work(int milli_sec);
 

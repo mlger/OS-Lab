@@ -15,14 +15,14 @@ ASM		= nasm
 DASM		= ndisasm
 CC		= gcc
 LD		= ld
-BOCHS = bochs
-
+BOCHS	= bochs
 ASMBFLAGS	= -I boot/include/
 ASMKFLAGS	= -I include/ -f elf
-CFLAGS		= -I include/ -c -fno-builtin -m32 -fno-stack-protector
+CFLAGS		= -I include/ -g -c -fno-builtin -m32 -fno-stack-protector
 LDFLAGS		= -s -Ttext $(ENTRYPOINT) -m elf_i386
 DASMFLAGS	= -u -o $(ENTRYPOINT) -e $(ENTRYOFFSET)
-BOCHSCLASS = -f bochsrc
+BOCHSFLAGS	= -f bochsrc
+
 
 # This Program
 ORANGESBOOT	= boot/boot.bin boot/loader.bin
@@ -30,6 +30,7 @@ ORANGESKERNEL	= kernel.bin
 OBJS		= kernel/kernel.o kernel/syscall.o kernel/start.o kernel/main.o\
 			kernel/clock.o kernel/keyboard.o kernel/tty.o kernel/console.o\
 			kernel/i8259.o kernel/global.o kernel/protect.o kernel/proc.o\
+			kernel/printf.o kernel/vsprintf.o\
 			lib/kliba.o lib/klib.o lib/string.o
 DASMOUTPUT	= kernel.bin.asm
 
@@ -112,6 +113,12 @@ kernel/protect.o: kernel/protect.c include/type.h include/const.h include/protec
 kernel/proc.o: kernel/proc.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+kernel/printf.o: kernel/printf.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+kernel/vsprintf.o: kernel/vsprintf.c
+	$(CC) $(CFLAGS) -o $@ $<
+
 lib/klib.o: lib/klib.c include/type.h include/const.h include/protect.h include/string.h include/proc.h include/proto.h \
 			include/global.h
 	$(CC) $(CFLAGS) -o $@ $<
@@ -123,4 +130,4 @@ lib/string.o : lib/string.asm
 	$(ASM) $(ASMKFLAGS) -o $@ $<
 
 run: image
-	$(BOCHS) $(BOCHSCLASS)
+	$(BOCHS) $(BOCHSFLAGS)

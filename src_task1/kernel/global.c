@@ -20,12 +20,12 @@ PUBLIC PROCESS proc_table[NR_TASKS + NR_PROCS];
 
 PUBLIC TASK task_table[NR_TASKS] = {{task_tty, STACK_SIZE_TTY, "tty"}};
 
-PUBLIC TASK user_proc_table[NR_PROCS] = {{Reporter, STACK_SIZE_TESTA, "Reporter"},
-                                         {R1, STACK_SIZE_TESTB, "R1"},
-                                         {R2, STACK_SIZE_TESTC, "R2"},
-										 {R3, STACK_SIZE_TESTC, "R3"},
-										 {W1, STACK_SIZE_TESTC, "W1"},
-										 {W2, STACK_SIZE_TESTC, "W2"}};
+PUBLIC TASK user_proc_table[NR_PROCS] = {{Reporter, STACK_SIZE_REPORTER, "Reporter"},
+                                         {R1, STACK_SIZE_R1, "R1"},
+                                         {R2, STACK_SIZE_R2, "R2"},
+										 {R3, STACK_SIZE_R3, "R3"},
+										 {W1, STACK_SIZE_W1, "W1"},
+										 {W2, STACK_SIZE_W2, "W2"}};
 
 PUBLIC char task_stack[STACK_SIZE_TOTAL];
 
@@ -40,7 +40,8 @@ PUBLIC system_call sys_call_table[NR_SYS_CALL] = {
 	sys_sleep_ms,
 	sys_print_str,
 	p_process,
-	v_process
+	v_process,
+	sys_work
 };
 
 // Lg: 添加信号量

@@ -20,18 +20,14 @@ int sleep_t;
 PUBLIC void print_status(PROCESS* p);
 int cost_time_R1, cost_time_R2, cost_time_R3, cost_time_W1, cost_time_W2;
 
+PRIVATE void init_semaphore(SEMAPHORE* sem, int value);
+void print_semaphore_info(SEMAPHORE* sem);
 /*======================================================================*
                             init_tasks
  *======================================================================*/
 PRIVATE void init_tasks() {
     init_screen(tty_table);
-    clean(console_table);
-
-    int temp_prior[7] = {1, 1, 1, 1, 1, 1, 1};
-    for (int i = 0; i < 7; ++i) {
-        proc_table[i].ticks = temp_prior[i];
-        proc_table[i].priority = temp_prior[i];
-    }
+    clean_screen(console_table);
 
     // 初始化变量
     k_reenter = 0;  // 重入中断数
@@ -45,8 +41,8 @@ PRIVATE void init_tasks() {
     cost_time_W1 = 3;  // W1 操作耗时
     cost_time_W2 = 4;  // W2 操作耗时
 
-    strategy = 0;  // 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
-    sleep_t = 0;  // 执行完，睡眠时间
+    strategy = 2;  // 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
+    sleep_t = 1;  // 执行完，睡眠时间
 
     p_proc_ready = proc_table;
 }
@@ -80,6 +76,8 @@ PUBLIC int kernel_main() {
 
         strcpy(p_proc->p_name, p_task->name);  // name of the process
         p_proc->pid = i;                       // pid
+        p_proc->wake_tick = 0;                 // 唤醒时间
+        p_proc->state = STRUN;                 // 进程状态
 
         p_proc->ldt_sel = selector_ldt;
 
@@ -106,13 +104,6 @@ PUBLIC int kernel_main() {
         selector_ldt += 1 << 3;
     }
 
-    proc_table[0].ticks = proc_table[0].priority = 15;
-    proc_table[1].ticks = proc_table[1].priority = 5;
-    proc_table[2].ticks = proc_table[2].priority = 3;
-
-    k_reenter = 0;
-    ticks = 0;
-
     init_tasks();
     init_clock();
     init_keyboard();
@@ -126,6 +117,9 @@ PUBLIC int kernel_main() {
 // 函数声明
 PRIVATE void read_process(int silces);
 PRIVATE void write_process(int silces);
+PRIVATE void write(int num, int col);
+PRIVATE void writesp(int num, int col);
+PRIVATE void writeln(int num, int col);
 void read_reader_first(int slices);
 void write_reader_first(int slices);
 void read_writer_first(int slices);
@@ -256,7 +250,30 @@ void write_fair(int slices) {
 /*======================================================================*
                                进程
  *======================================================================*/
-void Reporter() {}
+void Reporter() {
+    int cnt = 0;
+    while (1) {
+        if (cnt < 20) {
+            writesp(cnt, DEFAULT_CHAR_COLOR);
+            if (cnt <= 0x0F)
+                print_str(" ", DEFAULT_CHAR_COLOR);
+
+            for (PROCESS* p = proc_table + NR_TASKS + 1;
+                 p < proc_table + NR_TASKS + NR_PROCS; p++) {
+                if (p->state == STBLOCK) {
+                    print_str(" X ", RED);
+                } else if (p->state == STSLEEP) {
+                    print_str(" Z ", BLUE);
+                } else {
+                    print_str(" O ", GREEN);
+                }
+            }
+            print_str("\n", DEFAULT_CHAR_COLOR);
+        }
+        ++cnt;
+        sleep_ms(TIME_SLICE);
+    }
+}
 
 void R1() {
     while (1) {
@@ -297,8 +314,25 @@ void W2() {
                                读写操作
  *======================================================================*/
 PRIVATE void read_process(int silces) {
-    sleep_ms(silces * TIME_SLICE);  // 读耗时 silces 个时间片
+    //printf("\n\nreadcost_time: %x\n\n", silces);
+    work(silces * TIME_SLICE);  // 读耗时 silces 个时间片
 }
 PRIVATE void write_process(int silces) {
-    sleep_ms(silces * TIME_SLICE);  // 写耗时 silces 个时间片
+    //printf("\n\nwritecost_time: %x\n\n", silces);
+    work(silces * TIME_SLICE);  // 写耗时 silces 个时间片
+}
+
+/*======================================================================*
+                                                           打印数字
+ *======================================================================*/
+PRIVATE void write(int num, int col) {
+    printf_col(col, "%x", num);
+}
+
+PRIVATE void writesp(int num, int col) {
+    printf_col(col, "%x ", num);
+}
+
+PRIVATE void writeln(int num, int col) {
+    printf_col(col, "%x\n", num);
 }

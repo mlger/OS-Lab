@@ -41,4 +41,3 @@ extern	SEMAPHORE	writer_cnt_mutex;
 extern	SEMAPHORE	reader_cnt_mutex;
 extern	SEMAPHORE	queue;
 extern	SEMAPHORE	reader_mutex;
-extern	SEMAPHORE	writer_mutex;
