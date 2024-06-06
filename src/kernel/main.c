@@ -251,6 +251,7 @@ void write_fair(int slices) {
                                进程
  *======================================================================*/
 void Reporter() {
+	milli_delay(TIME_SLICE>>1);
     int cnt = 0;
     while (1) {
         if (cnt < 20) {
@@ -315,11 +316,15 @@ void W2() {
  *======================================================================*/
 PRIVATE void read_process(int silces) {
     //printf("\n\nreadcost_time: %x\n\n", silces);
-    work(silces * TIME_SLICE);  // 读耗时 silces 个时间片
+    //work(silces * TIME_SLICE);  // 读耗时 silces 个时间片
+	p_proc_ready->state = STRUN;
+	milli_delay(silces * TIME_SLICE);
 }
 PRIVATE void write_process(int silces) {
     //printf("\n\nwritecost_time: %x\n\n", silces);
-    work(silces * TIME_SLICE);  // 写耗时 silces 个时间片
+    //work(silces * TIME_SLICE);  // 写耗时 silces 个时间片
+	p_proc_ready->state = STRUN;
+	milli_delay(silces * TIME_SLICE);
 }
 
 /*======================================================================*
