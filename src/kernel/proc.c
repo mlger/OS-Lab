@@ -66,7 +66,7 @@ PUBLIC void sys_sleep_ms(int milli_sec) {
     // disp_str("sys_sleep_ms: ");
     // disp_int(milli_sec);
 
-    int ticks = milli_sec * HZ / 1000;
+    int ticks = milli_sec * HZ / 1000 + 2;	// 延迟唤醒, 为了避免进程切换时的误差
     setState(ticks, STSLEEP);
     schedule();
 

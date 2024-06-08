@@ -105,7 +105,7 @@
 
 #define MAX_READERS 3	//最大读者数
 #define MAX_WRITERS 1	//最大写者数
-#define TIME_SLICE 	3000	//时间片
+#define TIME_SLICE  3000	//时间片
 
 #define STRUN 0
 #define STBLOCK 1

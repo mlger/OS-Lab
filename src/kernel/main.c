@@ -41,7 +41,7 @@ PRIVATE void init_tasks() {
     cost_time_W1 = 3;  // W1 操作耗时
     cost_time_W2 = 4;  // W2 操作耗时
 
-    strategy = 2;  // 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
+    strategy = 0;  // 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
     sleep_t = 1;  // 执行完，睡眠时间
 
     p_proc_ready = proc_table;
@@ -316,15 +316,17 @@ void W2() {
  *======================================================================*/
 PRIVATE void read_process(int silces) {
     //printf("\n\nreadcost_time: %x\n\n", silces);
-    //work(silces * TIME_SLICE);  // 读耗时 silces 个时间片
-	p_proc_ready->state = STRUN;
-	milli_delay(silces * TIME_SLICE);
+    work(silces * TIME_SLICE);  // 读耗时 silces 个时间片
+	//p_proc_ready->state = STRUN;
+	//milli_delay(silces * TIME_SLICE);
+	//p_proc_ready->state = STSLEEP;
 }
 PRIVATE void write_process(int silces) {
     //printf("\n\nwritecost_time: %x\n\n", silces);
-    //work(silces * TIME_SLICE);  // 写耗时 silces 个时间片
-	p_proc_ready->state = STRUN;
-	milli_delay(silces * TIME_SLICE);
+    work(silces * TIME_SLICE);  // 写耗时 silces 个时间片
+	//p_proc_ready->state = STRUN;
+	//milli_delay(silces * TIME_SLICE);
+	//p_proc_ready->state = STSLEEP;
 }
 
 /*======================================================================*
