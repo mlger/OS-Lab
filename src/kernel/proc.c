@@ -48,10 +48,13 @@ PUBLIC void schedule() {
         if (p_proc_ready >= proc_table + NR_TASKS + NR_PROCS) {
             p_proc_ready = proc_table;
         }
-        if (p_proc_ready->state == STRUN &&
-            p_proc_ready->wake_tick <= current_tick) {
-            break;  // 找到进程
-        }
+		if (p_proc_ready->wake_tick <= current_tick ) {
+			break;
+		}
+        //if (p_proc_ready->state == STWAIT) {
+        //    break;  // 找到进程
+        //}
+
     }
 }
 
@@ -65,8 +68,10 @@ PUBLIC int sys_get_ticks() {
 PUBLIC void sys_sleep_ms(int milli_sec) {
     // disp_str("sys_sleep_ms: ");
     // disp_int(milli_sec);
-
-    int ticks = milli_sec * HZ / 1000 + 2;	// 延迟唤醒, 为了避免进程切换时的误差
+	//if (milli_sec <= 0) {
+	//	return;
+	//}
+    int ticks = milli_sec * HZ / 1000;	// 延迟唤醒, 为了避免进程切换时的误差
     setState(ticks, STSLEEP);
     schedule();
 

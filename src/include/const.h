@@ -103,12 +103,19 @@
 /* system call */
 #define NR_SYS_CALL     6
 
-#define MAX_READERS 3	//最大读者数
+
 #define MAX_WRITERS 1	//最大写者数
 #define TIME_SLICE  3000	//时间片
 
-#define STRUN 0
+#define STWAIT 0
 #define STBLOCK 1
 #define STSLEEP 2
+#define STRUN 3
+
+
+#define STRATEGY 2	// 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
+#define MAX_READERS 3	//最大读者数
+#define SLEEP_SLICES 2	//睡眠时间片
+#define print_frame 20	//打印帧数
 
 #endif /* _ORANGES_CONST_H_ */

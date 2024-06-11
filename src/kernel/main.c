@@ -41,10 +41,21 @@ PRIVATE void init_tasks() {
     cost_time_W1 = 3;  // W1 操作耗时
     cost_time_W2 = 4;  // W2 操作耗时
 
-    strategy = 0;  // 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
-    sleep_t = 1;  // 执行完，睡眠时间
+    strategy = STRATEGY;  // 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
+    sleep_t = SLEEP_SLICES;  // 执行完，睡眠时间
 
-    p_proc_ready = proc_table;
+    //p_proc_ready = proc_table;
+	switch (STRATEGY) {
+		case 0: // 读者优先
+			p_proc_ready = proc_table;
+			break;
+		case 1: // 写者优先
+			p_proc_ready = proc_table + 5;
+			break;
+		case 2: // 读写公平
+			p_proc_ready = proc_table;
+			break;
+	};
 }
 
 /*======================================================================*
@@ -134,13 +145,15 @@ write_f write_funcs[3] = {write_reader_first, write_writer_first, write_fair};
                                读者优先
  *======================================================================*/
 void read_reader_first(int slices) {
-    P(&reader_mutex);      // 读者上限
+	P(&queue);
+	P(&reader_mutex);  // 读者上限
     P(&reader_cnt_mutex);  // 调取读者数量
     if (readers == 0) {
         P(&read_write_mutex);  // 读写互斥
     }
     readers++;
     V(&reader_cnt_mutex);  // 释放读者数量
+	V(&queue);
 
     // 读操作
     read_process(slices);
@@ -155,12 +168,15 @@ void read_reader_first(int slices) {
 }
 
 void write_reader_first(int slices) {
+	P(&queue);
+	V(&queue);
     P(&read_write_mutex);  // 读写互斥
 
     // 写操作
     write_process(slices);
 
     V(&read_write_mutex);  // 读写互斥解锁
+
 }
 
 /*======================================================================*
@@ -254,7 +270,7 @@ void Reporter() {
 	milli_delay(TIME_SLICE>>1);
     int cnt = 0;
     while (1) {
-        if (cnt < 20) {
+        if (cnt < print_frame) {
             writesp(cnt, DEFAULT_CHAR_COLOR);
             if (cnt <= 0x0F)
                 print_str(" ", DEFAULT_CHAR_COLOR);

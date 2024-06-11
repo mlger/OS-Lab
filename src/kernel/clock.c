@@ -21,12 +21,12 @@
 PUBLIC void clock_handler(int irq) {
     ticks++;
 
-    for (PROCESS* p = proc_table + NR_TASKS;
-         p < proc_table + NR_TASKS + NR_PROCS; p++) {
-        if (p->wake_tick <= ticks) {
-            p->state = STRUN;
-        }
-    }
+    //for (PROCESS* p = proc_table + NR_TASKS;
+    //     p < proc_table + NR_TASKS + NR_PROCS; p++) {
+    //    if (p->wake_tick <= ticks) {
+    //        p->state = STWAIT;
+    //    }
+    //}
 
     if (k_reenter != 0) {
         return;

@@ -52,7 +52,7 @@ typedef struct s_proc {
     DESCRIPTOR ldts[LDT_SIZE]; /* local descriptors for code and data */
 
     int wake_tick;
-	int state;	// 0 running 1 blocking 2 sleeping
+	int state;	// 0 waiting 1 blocking 2 sleeping 3 running
 
     u32 pid;         /* process id passed in from MM */
     char p_name[16]; /* name of the process */
