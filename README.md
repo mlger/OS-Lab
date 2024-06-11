@@ -307,8 +307,47 @@ void write_reader_first(int slices) {
 2. 由于 R2 受代码 1 影响，此时读者上限仍未释放，但 W1 从读写互斥锁释放出来，优先执行 W1。
 3. 这样，即使是读者优先，且队列是读-读-写，但仍造成了读-写-读的反常情况。
 
-#### 三、
+#### 三、生产者消费者问题
+
+```c
+/*======================================================================*
+                               进程策略
+ *======================================================================*/
+void produce_1() {
+    P(&sem_empty);
+    add_gen_cost(p_proc_ready);
+    V(&sem_full1);
+}
+
+void produce_2() {
+    P(&sem_empty);
+    add_gen_cost(p_proc_ready);
+    V(&sem_full2);
+}
+
+void consume_1() {
+    P(&sem_full1);
+    add_gen_cost(p_proc_ready);
+    V(&sem_empty);
+}
+
+void consume_2() {
+    P(&sem_full2);
+    add_gen_cost(p_proc_ready);
+    V(&sem_empty);
+}
+
+void consume_3() {
+    P(&sem_full2);
+    add_gen_cost(p_proc_ready);
+    V(&sem_empty);
+}
+```
+
+限制仓库容量为 1, 3, 5 的情况：
+
+![image-20240611174332207](https://raw.githubusercontent.com/mlger/Pict/main/newPath/image-20240611174332207.png)
 
 #### 四、参考资料
 
-1. [进程同步经典问题之读者写者问题 - 知乎](https://zhuanlan.zhihu.com/p/538487720)
+1. [进程同步经典问题之读者写者问题 - 知乎](https://zhuanlan.zhihu.com/p/538487720)	
