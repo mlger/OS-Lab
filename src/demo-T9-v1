@@ -1,0 +1,18 @@
+semaphore s1, s2;
+s1 = 1; s2 = 0;
+
+Process P1() {
+  while (1) {
+    P(S1);
+    {拣白子}
+    V(S2);
+  }
+}
+
+Process P2() {
+  while (1) {
+    P(S2);
+    {拣黑子}
+    V(S1);
+  }
+}

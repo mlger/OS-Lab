@@ -1,0 +1,33 @@
+struct {
+  char readerName[20];
+  int number;
+} A[100]
+for (int i = 0; i < 100; i++) {
+  A[i].number = i;
+  A[i].readerName = null;
+}
+semaphore mutex, seat;
+mutex = 1; seat = 100;
+
+Process Reader(char name[20]) {
+  while (true) {
+    {进入阅览室}
+    P(seat);
+      P(mutex);
+        for (int i = 0; i < 100; i++) {
+          if (A[i].readerName == null) {
+            {读者得到座位i}
+            A[i].readerName = name;					
+            break;
+          }
+        }
+      V(mutex);
+      {读者选择座位i,坐下读书}
+      P(mutex);
+        {读者离开座位i}
+        A[i].readerName = null;
+      V(mutex);
+    V(seat);
+    {离开阅览室}
+  }
+}

@@ -1,0 +1,35 @@
+int buf[9];
+int count = 0, getptr = 0, putptr = 0;
+semaphore empty = 9, full = 0, mutex = 1;
+
+
+Process Producer() {
+  while (true) {
+    {生产3个整数};
+    P(empty);
+	P(empty);
+	P(empty);
+	P(mutex);
+	buf[putptr] = num[0];
+	putptr = (putptr + 1) % 9;
+	buf[putptr] = num[1];
+	putptr = (putptr + 1) % 9;
+	buf[putptr] = num[2];
+	putptr = (putptr + 1) % 9;
+	V(mutex);
+	V(full);
+	V(full);
+	V(full);
+  }
+}
+
+Process Consumer() {
+  while (true) {
+    P(full);
+    P(mutex);
+    num = buf[getptr];
+    getptr = (getptr + 1) % 9;
+    V(mutex);
+    V(empty);
+  }
+}

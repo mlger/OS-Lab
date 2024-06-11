@@ -1,0 +1,47 @@
+type readbook = MONITOR {
+    semaphore s;
+    int s_count, i, seatCount;
+    char name[100];
+    seatCount = 0; //已被占用的座位数
+    InterfaceModule IM;
+    DEFINE enterroom(), leaveroom();
+    USE enter(), leave(), wait(), signal();
+
+    void enterroom(char[] readername) {
+        enter(IM);
+        if (seatCount >= 100)
+            wait(s, s_count, IM);
+        seatCount++;
+        for (int i = 0; i < 100; i++) {
+            if (name[i] == null) {
+                name[i] = readername;
+                break;
+            }
+        }
+        {获得座位};
+        leave(IM);
+    }
+
+    void leaveroom(char[] readername) {
+        enter(IM);
+        seatCount--;
+        for (int i = 0; i < 100; i++) {
+            if (name[i] == readername) {
+                name[i] = null;
+                break;
+            }
+        }
+        signal(s, s_count, IM);
+        leave(IM);
+    }
+}
+
+cobegin
+    process readeri() {
+    {进入阅览室}
+        readbook.enterroom(readername);
+        {阅读};
+        readbook.leaveroom(readername);
+        {离开阅览室};
+    }
+coend
