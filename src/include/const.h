@@ -111,4 +111,6 @@
 #define STBLOCK 1
 #define STSLEEP 2
 
+#define MAX_N 5
+
 #endif /* _ORANGES_CONST_H_ */

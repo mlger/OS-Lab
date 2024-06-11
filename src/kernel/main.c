@@ -28,7 +28,7 @@ PRIVATE void init_tasks() {
     // 初始化变量
     k_reenter = 0;  // 重入中断数
     ticks = 0;      // 时钟中断数
-    n = 2;          // 物品上限
+    n = MAX_N;          // 物品上限
     p_proc_ready = proc_table;
 
     // 初始化信号量
