@@ -113,9 +113,9 @@
 #define STRUN 3
 
 
-#define STRATEGY 2	// 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
-#define MAX_READERS 3	//最大读者数
-#define SLEEP_SLICES 2	//睡眠时间片
+#define STRATEGY 0	// 读写策略, 0: 读者优先, 1: 写者优先, 2: 读写公平
+#define MAX_READERS 1	//最大读者数
+#define SLEEP_SLICES 0	//睡眠时间片
 #define print_frame 20	//打印帧数
 
 #endif /* _ORANGES_CONST_H_ */

@@ -264,12 +264,13 @@ void write_fair(int slices) {
 
 ![image-20240611171730821](https://raw.githubusercontent.com/mlger/Pict/main/newPath/image-20240611171730821.png)
 
-##### 5. 细节问题
+##### 5. 遇到的问题
 
-目前代码已跑通所有期望输出，但逻辑上仍存在一些问题。下面给出错误输出的原版本读者优先代码。
+目前代码已跑通所有期望输出。下面给出错误输出的原版本读者优先代码。
 
 ```c
 void read_reader_first(int slices) {
+    // P(&queue);  ----------5
 	P(&reader_mutex);  // 读者上限  --------1
     P(&reader_cnt_mutex);  // 调取读者数量
     if (readers == 0) {
@@ -277,6 +278,7 @@ void read_reader_first(int slices) {
     }
     readers++;
     V(&reader_cnt_mutex);  // 释放读者数量
+    // V(&queue);  ----------6
 
     // 读操作
     read_process(slices);
@@ -305,11 +307,13 @@ void write_reader_first(int slices) {
 
 假设读者上限为 1，读者优先，初始进程队列 R1, R2, W1。
 
-1. 在 R1执行完毕后，先执行代码 2，释放读者互斥锁。
-2. 由于 R2 受代码 1 影响，此时读者上限仍未释放，但 W1 从读写互斥锁释放出来，优先执行 W1。
+存在两个信号量队列 $read\_write\_mutex$ 及读者上限 $reader\_mutex$。
+
+1. 在 R1执行到 line 2 之前，此时 $read\_write\_mutex = [W1]$, $reader\_mutex = [R2]$。
+2. 先释放 read\_write\_mutex, 因此 W1 先写。
 3. 这样，即使是读者优先，且队列是读-读-写，但仍造成了读-写-读的反常情况。
 
-在写者最开始增加一组对称的 PV 操作(5, 6)，从逻辑上是没有作用的，但从程序方面刚好空出对应的帧使得 R1 释放了读者上限，由此才得到预期结果。
+在写者最开始增加一组对称的 PV 操作(line 5, 6)，将这两个信号量保护进临界区，问题得以解决。
 
 #### 三、生产者消费者问题
 
