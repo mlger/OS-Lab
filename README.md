@@ -210,9 +210,9 @@ void write_writer_first(int slices) {
 }
 ```
 
-限制 1 位读者同时读，读完休息 0, 1, 2 时间片：
+限制 1 位读者同时读，读完休息 0, 2, 4 时间片：
 
-![image-20240611170320786](https://raw.githubusercontent.com/mlger/Pict/main/newPath/image-20240611170320786.png)
+![image-20240612195059929](https://raw.githubusercontent.com/mlger/Pict/main/newPath/image-20240612195059929.png)
 
 限制 2 位读者同时读，读完休息 0, 2, 4 时间片：
 
